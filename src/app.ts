@@ -27,6 +27,7 @@ app.use("/auth", telegramAuthRouter);
 
 
 
+console.log('TEST -------- ');
 
 
 app.use(cors({
