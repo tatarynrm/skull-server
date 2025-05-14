@@ -17,28 +17,19 @@ const app = express();
 const allowedOrigins = [
   'https://skulldate.site',
   'https://www.skulldate.site',
-  'http://localhost:3000', // for local testing
-  'http://localhost:80', // for local testing
-  'http://127.0.0.1:80', // for local testing
-  'http://127.0.0.1', // for local testing
-  // Add more domains as necessary
+  'http://localhost:3000',
 ];
 
-// Dynamic CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
-      
     } else {
       callback(new Error("Not allowed by CORS"));
     }
-    
   },
   credentials: true, // Allow cookies and credentials
-    methods: ['GET', 'POST','PUT','DELETE','PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
 }));
 
 // Middleware
