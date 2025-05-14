@@ -1,25 +1,30 @@
-import express, { Request, Response, NextFunction } from "express";
-import bodyParser from "body-parser";
-import dotenv from "dotenv";
-import cookieParser from "cookie-parser";
-import cors, { CorsOptionsDelegate, CorsOptions } from "cors";
-import telegramAuthRouter from "./routes/auth.route";
-import bot from "./bot/bot";
+import express, { Request, Response, NextFunction } from 'express';
+import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
+import bodyParser from 'body-parser';
+import cors, { CorsOptions, CorsOptionsDelegate } from 'cors';
+import telegramAuthRouter from './routes/auth.route';
+import bot from './bot/bot';
 
 dotenv.config();
 
-const PORT: number = parseInt(process.env.PORT || "3001", 10);
+const PORT: number = parseInt(process.env.PORT || '3001', 10);
 const app = express();
 
-// Allowed origins for CORS
-const allowedOrigins: string[] = ['https://skulldate.site', 'https://www.skulldate.site'];
+// ✅ Дозволені домени для CORS
+const allowedOrigins: string[] = [
+  'https://skulldate.site',
+  'https://www.skulldate.site'
+];
 
-// CORS options delegate with TypeScript types
+// ✅ CORS опції (динамічно залежно від запиту)
 const corsOptionsDelegate: CorsOptionsDelegate<Request> = (
-  req: Request,
-  callback: (err: Error | null, options?: CorsOptions) => void
+  req,
+  callback
 ): void => {
   const origin = req.header('Origin');
+  console.log('🔍 CORS request from:', origin);
+
   if (!origin || allowedOrigins.includes(origin)) {
     callback(null, {
       origin: origin,
@@ -28,31 +33,31 @@ const corsOptionsDelegate: CorsOptionsDelegate<Request> = (
       allowedHeaders: ['Content-Type', 'Authorization'],
     });
   } else {
-    callback(new Error('Not allowed by CORS'));
+    callback(new Error('❌ Not allowed by CORS'));
   }
 };
 
-// Apply CORS before all middleware
+// 🧠 Важливо: CORS ПЕРЕД middleware
 app.use(cors(corsOptionsDelegate));
 app.options('*', cors(corsOptionsDelegate));
 
-// Middleware
-app.use(express.json());
+// ✅ Інші middleware
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 
-// Routes
-app.use("/auth", telegramAuthRouter);
+// ✅ Роут авторизації
+app.use('/auth', telegramAuthRouter);
 
-// Start bot and server
+// ✅ Запуск бота + сервера
 const startServer = async (): Promise<void> => {
   try {
     await bot.launch();
     app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
+      console.log(`🚀 Server is running on http://localhost:${PORT}`);
     });
-  } catch (error: unknown) {
-    console.error('Error starting the bot:', error);
+  } catch (error) {
+    console.error('❌ Error starting the bot:', error);
   }
 };
 
