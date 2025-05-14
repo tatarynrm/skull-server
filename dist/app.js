@@ -28,20 +28,12 @@ app.use(body_parser_1.default.urlencoded({ extended: true })); // For parsing ap
 app.use("/auth", auth_route_1.default);
 console.log('TEST -------- ');
 app.get('/', async (req, res) => {
+    console.log('1111');
     res.json({
         message: "Everything is okay"
     });
 });
-// Start the bot and server
-const startServer = async () => {
-    try {
-        await bot_1.default.launch(); // Launch the bot if needed
-        app.listen(PORT, () => {
-            console.log(`Server is running on http://localhost:${PORT}`);
-        });
-    }
-    catch (error) {
-        console.error('Error starting the bot:', error);
-    }
-};
-startServer();
+bot_1.default.launch(); // Launch the bot if needed
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});

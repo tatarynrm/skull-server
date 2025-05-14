@@ -34,6 +34,10 @@ app.use("/auth", telegramAuthRouter);
 console.log('TEST -------- ');
 
 app.get('/',async (req:Request,res:Response) =>{
+
+
+  console.log('1111');
+  
   res.json({
     message:"Everything is okay"
   })
@@ -41,16 +45,10 @@ app.get('/',async (req:Request,res:Response) =>{
 
 
 
-// Start the bot and server
-const startServer = async () => {
-  try {
-    await bot.launch(); // Launch the bot if needed
+
+     bot.launch(); // Launch the bot if needed
     app.listen(PORT, () => {
       console.log(`Server is running on http://localhost:${PORT}`);
     });
-  } catch (error) {
-    console.error('Error starting the bot:', error);
-  }
-};
 
-startServer();
+
