@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import telegramAuthRouter from "./routes/auth.route";
@@ -16,6 +16,10 @@ const allowedOrigins = ['https://skulldate.site', 'https://www.skulldate.site'];
 
 // CORS configuration
 
+app.use(cors({
+  origin: "*",
+  // credentials: true
+}));
 
 // Middleware
 app.use(express.json());  // For parsing application/json
@@ -29,11 +33,14 @@ app.use("/auth", telegramAuthRouter);
 
 console.log('TEST -------- ');
 
+app.get('/',async (req:Request,res:Response) =>{
+  res.json({
+    message:"Everything is okay"
+  })
+})
 
-app.use(cors({
-  origin: "*",
-  // credentials: true
-}));
+
+
 // Start the bot and server
 const startServer = async () => {
   try {
