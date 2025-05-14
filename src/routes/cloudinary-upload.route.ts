@@ -3,10 +3,15 @@ import multer from "multer";
 import cloudinary from "../utils/cloudinary";
 import { pool } from "../db/pool";
 // шлях до твого pool (db.ts)
-
+import cors from "cors";
 const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
-
+// CORS для цього маршруту
+router.use(cors({
+  origin: 'https://skulldate.site', // дозволяємо доступ тільки з цього домену
+  methods: ['GET', 'POST', 'OPTIONS','PUT','DELETE','PATCH'],
+  credentials: true,
+}));
 router.post(
   "/upload",
   upload.any(),
