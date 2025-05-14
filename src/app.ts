@@ -12,8 +12,8 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://skulldate.site",
-    // origin: "http://localhost",
+ origin: ["https://skulldate.site", "https://api.skulldate.site"],
+
     credentials: true,
   })
 );
