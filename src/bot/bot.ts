@@ -1,10 +1,12 @@
-import { Telegraf, session, Scenes } from 'telegraf';
-import { MyContext } from './types/scenesTypes';
-import registerScene from './scenes/registerScene';
-import { ProfileController } from './controllers/profile.controller';
-
-
-
+import { Telegraf, session, Scenes } from "telegraf";
+import { MyContext } from "./types/scenesTypes";
+import registerScene from "./scenes/registerScene";
+import { ProfileController } from "./controllers/profile.controller";
+import { handleStart } from "./tgUser";
+import { MainKeyboard } from "./keyboards/main_keyboard";
+import dayjs from "dayjs";
+import "dayjs/locale/uk";
+dayjs.locale("uk");
 // Створення бота з правильним типом контексту
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN as string);
 
@@ -19,28 +21,38 @@ bot.use(stage.middleware());
 bot.start(async (ctx) => {
   try {
     const userId = ctx.message.from.id;
-    console.log('CTX', userId);
-    
-    const checkHasProfile = await ProfileController.getProfileByUserId(userId);
-    console.log('checkHasProfile', checkHasProfile);
 
+    handleStart(ctx);
+
+    const checkHasProfile = await ProfileController.getProfileByUserId(userId);
+
+    if (checkHasProfile.date_block) {
+      return await ctx.reply(
+        `ВАШ АККАУНТ ЗАБЛОКОВАНО\n\n\n❗❗❗${checkHasProfile.block_reason}❗❗❗\n\n\nДАТА БЛОКУВАННЯ: ${dayjs(checkHasProfile.date_block).format("D MMMM YYYY")}`,
+        {
+          reply_markup: {
+            remove_keyboard: true,
+          },
+        }
+      );
+    }
     if (checkHasProfile && checkHasProfile.user_id && checkHasProfile.sex) {
-      return await ctx.reply('У вас вже є профіль ✅');
+      return await ctx.reply("Твій профіль ✅", { reply_markup: MainKeyboard });
     }
 
-    await ctx.scene.enter('register-wizard');
+    if (!checkHasProfile) {
+      await ctx.reply("Давай створимо тобі анкету ?");
+      await ctx.scene.enter("register-wizard");
+      return;
+    }
   } catch (error) {
-    console.error('Помилка у /start:', error);
-    await ctx.reply('Сталася помилка при запуску. Спробуйте пізніше.');
+    console.error("Помилка у /start:", error);
+    await ctx.reply("Сталася помилка при запуску. Спробуйте пізніше.");
+    return;
   }
 });
 
-// Запуск бота
-// bot.launch().then(() => {
-//   console.log('Бот запущений!');
-// });
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once("SIGINT", () => bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
 export default bot;

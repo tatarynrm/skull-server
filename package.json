@@ -16,6 +16,7 @@
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.1",
     "@types/jsonwebtoken": "^9.0.9",
+    "@types/multer": "^1.4.12",
     "@types/node": "^22.15.17",
     "@types/pg": "^8.15.1",
     "dotenv": "^16.5.0",
@@ -32,9 +33,12 @@
     "@telegraf/types": "^8.3.1",
     "axios": "^1.9.0",
     "body-parser": "^2.2.0",
+    "cloudinary": "^2.6.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "dayjs": "^1.11.13",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.2",
     "pg": "^8.16.0",
     "telegraf": "^4.16.3"
   }

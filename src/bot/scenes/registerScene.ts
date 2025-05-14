@@ -259,7 +259,7 @@ const registerScene = new Scenes.WizardScene<MyContext>(
         );
 
         // Тут можете додати логіку для переходу до знайомств
-        await ctx.reply("Ти перейшов до знайомств!", {
+        await ctx.reply("Ти в головному меню", {
           reply_markup: MainKeyboard
         });
         return ctx.scene.leave();

@@ -10,28 +10,42 @@ export class AuthController {
     this.authService = new AuthService();
   }
 
-  loginWithTelegram = async (req: Request, res: Response) => {
-    const { user } = req.body;
+loginWithTelegram = async (req: Request, res: Response) => {
+  const { user } = req.body;
 
+  const token = this.authService.generateToken(user);
 
-    const token = this.authService.generateToken(user);
-
-    // Оновлення фото
-    await pool.query("UPDATE tg_users SET photo_url = $1 WHERE tg_id = $2", [
-      user?.photo_url,
+  // Вставка або оновлення користувача
+  await pool.query(
+    `
+    INSERT INTO tg_users (tg_id, first_name, username, language_code, photo_url)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (tg_id) DO UPDATE
+    SET 
+      first_name = EXCLUDED.first_name,
+      username = EXCLUDED.username,
+      language_code = EXCLUDED.language_code,
+      photo_url = EXCLUDED.photo_url
+    `,
+    [
       user?.id,
-    ]);
+      user?.first_name,
+      user?.username,
+      user?.language_code || 'uk',
+      user?.photo_url
+    ]
+  );
 
-    // Встановлення токена в cookie
-    res.cookie("token", token, {
-      httpOnly: true, // захист від XSS
-      secure: true, // HTTPS only in prod
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 днів
-    });
+  // Встановлення токена в cookie
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 днів
+  });
 
-    res.status(200).json({ user, token: token });
-  };
+  res.status(200).json({ user, token });
+};
 
   getMe = async (req: Request, res: Response) => {
     const token = req.cookies?.token || req.body.uts;

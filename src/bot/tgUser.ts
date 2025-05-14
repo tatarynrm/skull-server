@@ -24,10 +24,10 @@ export const handleStart = async (ctx: Context) => {
       [tgUser.id, tgUser.first_name, tgUser.username, tgUser.language_code]
     );
 
-    const user = rows[0];
-    console.log('User inserted or updated:', user);
+  
 
-    await ctx.reply(`Привіт, ${user.first_name}!`);
+
+
   } catch (err) {
     console.error('DB error on start:', err);
     await ctx.reply('⚠️ Помилка при роботі з базою даних.');
