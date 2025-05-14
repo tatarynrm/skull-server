@@ -34,7 +34,7 @@ app.use(cors({
       callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true, // Allow cookies and credentials
+  // credentials: true, // Allow cookies and credentials
 }));
 
 // Middleware
