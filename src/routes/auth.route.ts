@@ -6,7 +6,7 @@ const authController = new AuthController();
 
 router.post('/telegram', authController.loginWithTelegram);
 
-router.post('/logout', authController.logout);
+// router.post('/logout', authController.logout);
 
 
 
