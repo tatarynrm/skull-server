@@ -45,7 +45,7 @@ app.get('/syka',async (req:Request,res:Response) =>{
 app.get('/',async (req:Request,res:Response) =>{
 
 
-  console.log('1111');
+  console.log('1111222');
   
   res.json({
     message:"Everything is okay"

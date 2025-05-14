@@ -34,7 +34,7 @@ app.get('/syka', async (req, res) => {
     });
 });
 app.get('/', async (req, res) => {
-    console.log('1111');
+    console.log('1111222');
     res.json({
         message: "Everything is okay"
     });
