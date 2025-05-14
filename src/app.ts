@@ -59,16 +59,7 @@ app.get('/', async (req: Request, res: Response) => {
 });
 
 // Preflight CORS (OPTIONS) handling for all routes
-app.options('*', cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-}));
+
 
 // Start the server
 app.listen(PORT, () => {
