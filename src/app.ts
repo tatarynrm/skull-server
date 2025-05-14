@@ -12,7 +12,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://127.0.0.1",
+    origin: "https://skulldate.site",
     // origin: "http://localhost",
     credentials: true,
   })
