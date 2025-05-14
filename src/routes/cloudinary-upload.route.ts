@@ -37,6 +37,7 @@ router.post(
 
         const result = await cloudinary.uploader.upload(dataURI, {
           folder: "skulldate",
+           allowed_origin: 'https://api.skulldate.site'
         });
 
         const imageUrl = result.secure_url;
