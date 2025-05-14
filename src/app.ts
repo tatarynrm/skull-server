@@ -14,8 +14,8 @@ const allowedOrigins = ["https://skulldate.site","https://www.skulldate.site"];
 
 app.use(
   cors({
-    origin: allowedOrigins,
-    credentials: true, // <== важливо, щоб куки передавались
+    origin: true,
+    credentials: true,
   })
 );
 
