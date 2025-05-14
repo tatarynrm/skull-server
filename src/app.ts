@@ -10,13 +10,20 @@ dotenv.config();
 const PORT = process.env.PORT || 3001;
 const app = express();
 
+const allowedOrigins = ["https://skulldate.site"];
+
 app.use(
   cors({
- origin:"*",
-
-    credentials: true,
+    origin: allowedOrigins,
+    credentials: true, // <== важливо, щоб куки передавались
   })
 );
+
+// Додатково: для preflight запитів
+app.options("*", cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.json()); // Для парсингу application/json
