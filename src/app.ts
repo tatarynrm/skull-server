@@ -42,6 +42,15 @@ app.get('/syka',async (req:Request,res:Response) =>{
     message:"Everything is okay"
   })
 })
+app.get('/',async (req:Request,res:Response) =>{
+
+
+  console.log('1111');
+  
+  res.json({
+    message:"Everything is okay"
+  })
+})
 
 
 
