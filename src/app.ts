@@ -18,6 +18,8 @@ const allowedOrigins = [
   'https://skulldate.site',
   'https://www.skulldate.site',
   'https://localhost:3000',
+  'http://127.0.0.1',
+  'http://127.0.0.1:80',
 ];
 
 app.use(cors({
