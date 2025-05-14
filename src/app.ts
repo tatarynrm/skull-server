@@ -17,23 +17,24 @@ const app = express();
 const allowedOrigins = [
   'https://skulldate.site',
   'https://www.skulldate.site',
-  'http://localhost:3000', // для локального тестування
-  'http://localhost:80', // для локального тестування
-  'http://127.0.0.1:80', // для локального тестування
-  'http://127.0.0.1', // для локального тестування
-  // Додай сюди інші домени за потребою
+  'http://localhost:3000', // for local testing
+  'http://localhost:80', // for local testing
+  'http://127.0.0.1:80', // for local testing
+  'http://127.0.0.1', // for local testing
+  // Add more domains as necessary
 ];
 
 // Dynamic CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true,
+  credentials: true, // Allow cookies and credentials
 }));
 
 // Middleware
@@ -45,16 +46,31 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use("/auth", telegramAuthRouter);
 app.use("/cloudinary", cloudinaryRouter);
 
+// Test route to check server status
 app.get('/syka', async (req: Request, res: Response) => {
   console.log('GET /syka');
   res.json({ message: "Everything is okay" });
 });
 
+// Root route for basic check
 app.get('/', async (req: Request, res: Response) => {
   console.log('GET /');
   res.json({ message: "Everything is okay" });
 });
 
+// Preflight CORS (OPTIONS) handling for all routes
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
+// Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
