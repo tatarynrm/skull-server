@@ -12,7 +12,7 @@ const app = express();
 
 app.use(
   cors({
- origin: ["https://skulldate.site", "https://api.skulldate.site"],
+ origin:"*",
 
     credentials: true,
   })
