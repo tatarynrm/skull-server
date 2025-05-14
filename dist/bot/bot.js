@@ -15,12 +15,20 @@ bot.use((0, telegraf_1.session)());
 bot.use(stage.middleware());
 // Команда /start для запуску сцени реєстрації
 bot.start(async (ctx) => {
-    const checkHasProfile = await profile_controller_1.ProfileController.getProfileByUserId(ctx.message.from.id);
-    console.log(checkHasProfile);
-    if (checkHasProfile.user_id && checkHasProfile.sex) {
-        // await ctx.scene.enter('register-wizard')
+    try {
+        const userId = ctx.message.from.id;
+        console.log('CTX', userId);
+        const checkHasProfile = await profile_controller_1.ProfileController.getProfileByUserId(userId);
+        console.log('checkHasProfile', checkHasProfile);
+        if (checkHasProfile && checkHasProfile.user_id && checkHasProfile.sex) {
+            return await ctx.reply('У вас вже є профіль ✅');
+        }
+        await ctx.scene.enter('register-wizard');
     }
-    await ctx.scene.enter('register-wizard');
+    catch (error) {
+        console.error('Помилка у /start:', error);
+        await ctx.reply('Сталася помилка при запуску. Спробуйте пізніше.');
+    }
 });
 // Запуск бота
 // bot.launch().then(() => {

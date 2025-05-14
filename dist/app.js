@@ -10,6 +10,7 @@ const auth_route_1 = __importDefault(require("./routes/auth.route"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const cors_1 = __importDefault(require("cors"));
 const bot_1 = __importDefault(require("./bot/bot")); // Telegram bot import
+bot_1.default.launch(); // Launch the bot if needed
 dotenv_1.default.config();
 const PORT = process.env.PORT || 3001;
 const app = (0, express_1.default)();
@@ -39,7 +40,6 @@ app.get('/', async (req, res) => {
         message: "Everything is okay"
     });
 });
-bot_1.default.launch(); // Launch the bot if needed
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });

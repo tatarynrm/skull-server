@@ -40,7 +40,12 @@ class ProfileController {
     static async getProfileByUserId(userId) {
         try {
             const result = await pool_1.pool.query(`SELECT * FROM users_profiles WHERE user_id = $1`, [userId]);
-            return result.rows[0] || null;
+            if (result.rows.length) {
+                return result.rows[0];
+            }
+            else {
+                return null;
+            }
         }
         catch (error) {
             console.error("Помилка при отриманні профілю:", error);

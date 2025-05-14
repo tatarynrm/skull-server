@@ -11,7 +11,6 @@ class AuthController {
     constructor() {
         this.loginWithTelegram = async (req, res) => {
             const { user } = req.body;
-            console.log(user, "USER FROM TELEGRAM !");
             const token = this.authService.generateToken(user);
             // Оновлення фото
             await pool_1.pool.query("UPDATE tg_users SET photo_url = $1 WHERE tg_id = $2", [

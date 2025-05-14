@@ -1,6 +1,5 @@
 import { pool } from "../../db/pool";
 
-
 export class ProfileController {
   static async upsertProfile(data: {
     user_id: number | string;
@@ -50,16 +49,21 @@ export class ProfileController {
     }
   }
 
-  static async getProfileByUserId(userId: number) {
-    try {
-      const result = await pool.query(
-        `SELECT * FROM users_profiles WHERE user_id = $1`,
-        [userId]
-      );
-      return result.rows[0] || null;
-    } catch (error) {
-      console.error("Помилка при отриманні профілю:", error);
-      throw new Error("Не вдалося отримати профіль.");
+static async getProfileByUserId(userId: number) {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM users_profiles WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length) {
+      return result.rows[0];
+    } else {
+      return null;
     }
+  } catch (error) {
+    console.error("Помилка при отриманні профілю:", error);
+    throw new Error("Не вдалося отримати профіль.");
   }
+}
 }

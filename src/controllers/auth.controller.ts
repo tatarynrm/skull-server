@@ -12,7 +12,7 @@ export class AuthController {
 
   loginWithTelegram = async (req: Request, res: Response) => {
     const { user } = req.body;
-    console.log(user, "USER FROM TELEGRAM !");
+
 
     const token = this.authService.generateToken(user);
 

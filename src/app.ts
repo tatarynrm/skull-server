@@ -5,7 +5,7 @@ import telegramAuthRouter from "./routes/auth.route";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import bot from "./bot/bot"; // Telegram bot import
-
+ bot.launch(); // Launch the bot if needed
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
@@ -55,7 +55,7 @@ app.get('/',async (req:Request,res:Response) =>{
 
 
 
-     bot.launch(); // Launch the bot if needed
+
     app.listen(PORT, () => {
       console.log(`Server is running on http://localhost:${PORT}`);
     });

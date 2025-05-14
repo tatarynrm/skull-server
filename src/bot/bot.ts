@@ -17,16 +17,23 @@ bot.use(stage.middleware());
 
 // Команда /start для запуску сцени реєстрації
 bot.start(async (ctx) => {
-  const checkHasProfile = await ProfileController.getProfileByUserId(ctx.message.from.id)
-console.log(checkHasProfile);
+  try {
+    const userId = ctx.message.from.id;
+    console.log('CTX', userId);
+    
+    const checkHasProfile = await ProfileController.getProfileByUserId(userId);
+    console.log('checkHasProfile', checkHasProfile);
 
-if (checkHasProfile.user_id && checkHasProfile.sex) {
-// await ctx.scene.enter('register-wizard')
-}
-await ctx.scene.enter('register-wizard')
-}
-  
-);
+    if (checkHasProfile && checkHasProfile.user_id && checkHasProfile.sex) {
+      return await ctx.reply('У вас вже є профіль ✅');
+    }
+
+    await ctx.scene.enter('register-wizard');
+  } catch (error) {
+    console.error('Помилка у /start:', error);
+    await ctx.reply('Сталася помилка при запуску. Спробуйте пізніше.');
+  }
+});
 
 // Запуск бота
 // bot.launch().then(() => {
