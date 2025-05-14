@@ -17,7 +17,7 @@ const app = express();
 const allowedOrigins = [
   'https://skulldate.site',
   'https://www.skulldate.site',
-  'http://localhost:3000',
+  'https://localhost:3000',
 ];
 
 app.use(cors({
