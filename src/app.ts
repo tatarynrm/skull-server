@@ -27,14 +27,18 @@ const allowedOrigins = [
 // Dynamic CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
+    
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
+      
     } else {
       callback(new Error("Not allowed by CORS"));
     }
+    
   },
-  // credentials: true, // Allow cookies and credentials
+  credentials: true, // Allow cookies and credentials
+    methods: ['GET', 'POST','PUT','DELETE','PATCH'],
 }));
 
 // Middleware
