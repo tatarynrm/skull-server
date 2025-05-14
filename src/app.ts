@@ -1,49 +1,57 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
-import telegramAuthRouter from "./routes/auth.route";
 import cookieParser from "cookie-parser";
-import cors from "cors";
-import bot from "./bot/bot"; // Telegram bot import
+import cors, { CorsOptionsDelegate, CorsOptions } from "cors";
+import telegramAuthRouter from "./routes/auth.route";
+import bot from "./bot/bot";
 
 dotenv.config();
 
-const PORT = process.env.PORT || 3001;
+const PORT: number = parseInt(process.env.PORT || "3001", 10);
 const app = express();
 
 // Allowed origins for CORS
-const allowedOrigins = ['https://skulldate.site', 'https://www.skulldate.site'];
+const allowedOrigins: string[] = ['https://skulldate.site', 'https://www.skulldate.site'];
 
-// CORS configuration
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true, // Allow credentials (cookies, tokens)
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
-  allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
-}));
+// CORS options delegate with TypeScript types
+const corsOptionsDelegate: CorsOptionsDelegate<Request> = (
+  req: Request,
+  callback: (err: Error | null, options?: CorsOptions) => void
+): void => {
+  const origin = req.header('Origin');
+  if (!origin || allowedOrigins.includes(origin)) {
+    callback(null, {
+      origin: origin,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    });
+  } else {
+    callback(new Error('Not allowed by CORS'));
+  }
+};
+
+// Apply CORS before all middleware
+app.use(cors(corsOptionsDelegate));
+app.options('*', cors(corsOptionsDelegate));
 
 // Middleware
-app.use(express.json());  // For parsing application/json
-app.use(cookieParser());  // For parsing cookies
-app.use(bodyParser.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
+app.use(express.json());
+app.use(cookieParser());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Routes
 app.use("/auth", telegramAuthRouter);
 
-// Start the bot and server
-const startServer = async () => {
+// Start bot and server
+const startServer = async (): Promise<void> => {
   try {
-    await bot.launch(); // Launch the bot if needed
+    await bot.launch();
     app.listen(PORT, () => {
       console.log(`Server is running on http://localhost:${PORT}`);
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error starting the bot:', error);
   }
 };
