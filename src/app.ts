@@ -10,7 +10,7 @@ dotenv.config();
 const PORT = process.env.PORT || 3001;
 const app = express();
 
-const allowedOrigins = ["https://skulldate.site"];
+const allowedOrigins = ["https://skulldate.site","https://www.skulldate.site"];
 
 app.use(
   cors({
