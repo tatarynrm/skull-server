@@ -15,7 +15,6 @@ router.post(
       const files = req.files as Express.Multer.File[];
       const userId = req.body.user_id;
       const privateFlag = req.body.private === 'true'; // Get the private flag from request
-console.log(files,'files');
 
       if (!userId) {
         res.status(400).json({ error: "Missing user_id" });

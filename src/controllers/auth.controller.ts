@@ -82,6 +82,7 @@ loginWithTelegram = async (req: Request, res: Response) => {
   getProfile = async (req: Request, res: Response) => {
    const {user_id} = req.body
 
+console.log(user_id,'user id ');
 
 
     try {
