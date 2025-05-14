@@ -15,18 +15,7 @@ const app = express();
 const allowedOrigins = ['https://skulldate.site', 'https://www.skulldate.site'];
 
 // CORS configuration
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true, // Allow credentials (cookies, tokens)
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
-  allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
-}));
+
 
 // Middleware
 app.use(express.json());  // For parsing application/json
@@ -36,6 +25,14 @@ app.use(bodyParser.urlencoded({ extended: true })); // For parsing application/x
 // Routes
 app.use("/auth", telegramAuthRouter);
 
+
+
+
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 // Start the bot and server
 const startServer = async () => {
   try {
