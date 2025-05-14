@@ -30,8 +30,8 @@ app.use("/auth", telegramAuthRouter);
 
 
 app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
+  origin: "*",
+  // credentials: true
 }));
 // Start the bot and server
 const startServer = async () => {
