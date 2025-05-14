@@ -27,7 +27,7 @@ app.use(body_parser_1.default.urlencoded({ extended: true })); // For parsing ap
 // Routes
 app.use("/auth", auth_route_1.default);
 console.log('TEST -------- ');
-app.get('/', async (req, res) => {
+app.get('/syka', async (req, res) => {
     console.log('1111');
     res.json({
         message: "Everything is okay"

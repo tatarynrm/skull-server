@@ -33,7 +33,7 @@ app.use("/auth", telegramAuthRouter);
 
 console.log('TEST -------- ');
 
-app.get('/',async (req:Request,res:Response) =>{
+app.get('/syka',async (req:Request,res:Response) =>{
 
 
   console.log('1111');
