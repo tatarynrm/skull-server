@@ -10,19 +10,19 @@ dotenv.config();
 const PORT = process.env.PORT || 3001;
 const app = express();
 
-const allowedOrigins = ["https://skulldate.site","https://www.skulldate.site"];
 
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
 
-// Додатково: для preflight запитів
-app.options("*", cors({
-  origin: allowedOrigins,
-  credentials: true,
+const allowedOrigins = ['https://skulldate.site', 'https://www.skulldate.site'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
 }));
 app.use(bodyParser.json());
 app.use(cookieParser());
