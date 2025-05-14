@@ -12,61 +12,51 @@ router.use(cors({
   methods: ['GET', 'POST', 'OPTIONS','PUT','DELETE','PATCH'],
   credentials: true,
 }));
-router.post(
-  "/upload",
-  upload.any(),
-  async (req: Request, res: Response): Promise<void> => {
-    console.log(req.body);
-    
-    try {
-      const files = req.files as Express.Multer.File[];
-      const userId = req.body.user_id;
-      const privateFlag = req.body.private === 'true'; // Get the private flag from request
- console.log(userId);
- console.log(files,'files');
-      if (!userId) {
+router.post("/upload", upload.any(), async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    const userId = req.body.user_id;
+
+    if (!userId) {
         res.status(400).json({ error: "Missing user_id" });
-        return;
-      }
-
-      if (!files || files.length === 0) {
-        res.status(400).json({ error: "No files uploaded" });
-        return;
-      }
-
-      const urls: string[] = [];
-
-      for (const file of files) {
-        const base64 = file.buffer.toString("base64");
-        const dataURI = `data:${file.mimetype};base64,${base64}`;
-
-        const result = await cloudinary.uploader.upload(dataURI, {
-          folder: "skulldate",
-           allowed_origin: 'https://api.skulldate.site'
-        });
-
-        const imageUrl = result.secure_url;
-        const publicId = result.public_id;
-        urls.push(imageUrl);
-
-        // Save image info in the database, including the private flag
-        await pool.query(
-          "INSERT INTO images (user_id, url, public_id, private) VALUES ($1, $2, $3, $4)",
-          [userId, imageUrl, publicId, privateFlag]
-        );
-      }
-
-      if (urls.length === 1) {
-        res.json({ url: urls[0] });
-      } else {
-        res.json({ urls });
-      }
-    } catch (err) {
-      console.error("Upload failed", err);
-      res.status(500).json({ error: "Upload failed", details: err });
     }
+
+    if (!files || files.length === 0) {
+        res.status(400).json({ error: "No files uploaded" });
+    }
+
+    const urls: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      // Прибираємо флаг приватності
+      const base64 = file.buffer.toString("base64");
+      const dataURI = `data:${file.mimetype};base64,${base64}`;
+
+      const result = await cloudinary.uploader.upload(dataURI, {
+        folder: "skulldate",
+        allowed_origin: "https://api.skulldate.site",
+      });
+
+      const imageUrl = result.secure_url;
+      const publicId = result.public_id;
+      urls.push(imageUrl);
+
+      // Зберігаємо фото без приватності
+      await pool.query(
+        "INSERT INTO images (user_id, url, public_id) VALUES ($1, $2, $3)",
+        [userId, imageUrl, publicId]
+      );
+    }
+
+    res.json(urls.length === 1 ? { url: urls[0] } : { urls });
+  } catch (err) {
+    console.error("Upload failed", err);
+    res.status(500).json({ error: "Upload failed", details: err });
   }
-);
+});
+
 
 
 router.delete(
