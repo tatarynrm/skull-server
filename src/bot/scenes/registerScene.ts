@@ -144,7 +144,9 @@ const registerScene = new Scenes.WizardScene<MyContext>(
 
       await ctx.reply(
         "Тепер надішли фото, яке ти хочеш додати до свого профілю (максимум 1).\nЧому 1 ?\nТому що в сучасному світі достатньо одного фото щоб закохатись.\nОпис своєї особистості - набагато важливіший"
-      );
+      ,{reply_markup:{
+        remove_keyboard:true
+      }});
       return ctx.wizard.next();
     }
   },

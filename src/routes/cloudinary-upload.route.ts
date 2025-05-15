@@ -4,28 +4,37 @@ import cloudinary from "../utils/cloudinary";
 import { pool } from "../db/pool";
 // шлях до твого pool (db.ts)
 import cors from "cors";
+import { redis } from "../utils/redis";
 const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
 // CORS для цього маршруту
-router.use(cors({
-  origin: 'https://skulldate.site', // дозволяємо доступ тільки з цього домену
-  methods: ['GET', 'POST', 'OPTIONS','PUT','DELETE','PATCH'],
-  credentials: true,
-}));
+router.use(
+  cors({
+    origin: ["https://skulldate.site", "http://localhost:80"], // дозволяємо доступ тільки з цього домену
+    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
+    credentials: true,
+  })
+);
 router.post("/upload", upload.any(), async (req: Request, res: Response) => {
   try {
     const files = req.files as Express.Multer.File[];
     const userId = req.body.user_id;
 
     if (!userId) {
-        res.status(400).json({ error: "Missing user_id" });
+      res.status(400).json({ error: "Missing user_id" });
+      return;
     }
 
     if (!files || files.length === 0) {
-        res.status(400).json({ error: "No files uploaded" });
+      res.status(400).json({ error: "No files uploaded" });
+      return;
     }
 
     const urls: string[] = [];
+
+    // Очистка кешу для цього користувача
+    const cacheKey = `user_photos:${userId}`;
+    await redis.del(cacheKey); // redisClient - це ваш інстанс Redis
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -57,18 +66,15 @@ router.post("/upload", upload.any(), async (req: Request, res: Response) => {
   }
 });
 
-
-
 router.delete(
   "/delete/:id",
   async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id;
 
-
     try {
-      // Отримати public_id із бази
+      // Отримати public_id та user_id із бази
       const result = await pool.query(
-        "SELECT public_id FROM images WHERE id = $1",
+        "SELECT public_id, user_id FROM images WHERE id = $1",
         [id]
       );
 
@@ -77,28 +83,30 @@ router.delete(
         return;
       }
 
-      const publicId = result.rows[0].public_id;
+      const { public_id, user_id } = result.rows[0];
 
       // Видалити з Cloudinary
-      await cloudinary.uploader.destroy(publicId);
+      await cloudinary.uploader.destroy(public_id);
 
       // Видалити з бази
       await pool.query("DELETE FROM images WHERE id = $1", [id]);
 
+      // Очистити Redis кеш
+      const cacheKey = `user_photos:${user_id}`;
+      await redis.del(cacheKey);
+
       res.json({ success: true });
-      return;
     } catch (err) {
       console.error("Delete failed", err);
       res.status(500).json({ error: "Delete failed", details: err });
-      return;
     }
   }
 );
+
 router.delete(
   "/delete-multiple",
   async (req: Request, res: Response): Promise<void> => {
     const { ids } = req.body;
-
 
     if (!Array.isArray(ids) || ids.length === 0) {
       res.status(400).json({ error: "No photo IDs provided" });
@@ -106,9 +114,9 @@ router.delete(
     }
 
     try {
-      // Отримуємо всі public_id для видалених фото
+      // Отримати public_id і user_id для кожного фото
       const result = await pool.query(
-        "SELECT public_id FROM images WHERE id = ANY($1)",
+        "SELECT public_id, user_id FROM images WHERE id = ANY($1)",
         [ids]
       );
 
@@ -118,61 +126,98 @@ router.delete(
       }
 
       const publicIds = result.rows.map((row) => row.public_id);
+      const userIds = [...new Set(result.rows.map((row) => row.user_id))]; // унікальні user_id
 
-      // Видаляємо фото з Cloudinary
-      await Promise.all(publicIds.map((publicId) => cloudinary.uploader.destroy(publicId)));
+      // Видалити з Cloudinary
+      await Promise.all(
+        publicIds.map((publicId) => cloudinary.uploader.destroy(publicId))
+      );
 
-      // Видаляємо фото з бази
+      // Видалити з бази
       await pool.query("DELETE FROM images WHERE id = ANY($1)", [ids]);
 
+      // Видалити кеші по кожному користувачу
+      await Promise.all(
+        userIds.map((userId) => redis.del(`user_photos:${userId}`))
+      );
+
       res.json({ success: true });
-      return;
     } catch (err) {
       console.error("Delete multiple failed", err);
       res.status(500).json({ error: "Delete failed", details: err });
-      return;
     }
   }
 );
 
 router.post("/get-photos", async (req: Request, res: Response) => {
   const { user_id } = req.body;
+  const cacheKey = `user_photos:${user_id}`;
+
   try {
+    // 1. Перевіряємо Redis кеш
+    const cachedPhotos = await redis.get(cacheKey);
+
+    if (cachedPhotos) {
+      console.log("🔄 Фото з Redis кешу");
+      res.json(JSON.parse(cachedPhotos));
+      return;
+    }
+
+    // 2. Якщо нема в кеші — беремо з БД
     const result = await pool.query(
-      `select a.url,a.public_id,a.id,a.private from images a where user_id = $1`,
+      `SELECT a.url, a.public_id, a.id, a.private FROM images a WHERE user_id = $1`,
       [user_id]
     );
 
-    res.json(result.rows);
+    const photos = result.rows;
+
+    // 3. Кешуємо в Redis на 10 хвилин (600 секунд)
+    await redis.set(cacheKey, JSON.stringify(photos), "EX", 60 * 10);
+
+    res.json(photos);
   } catch (error) {
-    console.log(error);
+    console.error("❌ Помилка при отриманні фото:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-router.patch('/toggle-private', async (req:Request, res:Response) => {
-  const { ids, makePrivate } = req.body // ids: number[], makePrivate: boolean
-console.log(ids);
+router.patch("/toggle-private", async (req: Request, res: Response) => {
+  const { ids, makePrivate } = req.body; // ids: number[], makePrivate: boolean
 
-  if (!Array.isArray(ids) || typeof makePrivate !== 'boolean') {
-     res.status(400).json({ success: false, message: 'Невірні дані' })
-     return
+  if (!Array.isArray(ids) || typeof makePrivate !== "boolean") {
+    res.status(400).json({ success: false, message: "Невірні дані" });
+    return;
   }
 
   try {
+    // Оновлюємо статус приватності фотографій
     const query = `
       UPDATE images
       SET private = $1
       WHERE id = ANY($2::int[])
-    `
-    await pool.query(query, [makePrivate, ids])
+    `;
+    await pool.query(query, [makePrivate, ids]);
 
-    res.json({ success: true })
+    // Очистка кешу для цього користувача
+    // Важливо! Потрібно знати, як зберігається user_id для кожного фото, щоб створити правильний cacheKey
+    const queryForUserIds = `
+      SELECT DISTINCT user_id FROM images WHERE id = ANY($1::int[])
+    `;
+    const result = await pool.query(queryForUserIds, [ids]);
+
+    if (result.rows.length > 0) {
+      const userId = result.rows[0].user_id; // Враховуємо лише одного користувача, якщо ви знаєте, що зображення належать лише одному користувачеві
+      const cacheKey = `user_photos:${userId}`;
+
+      // Очистка кешу для цього користувача
+      await redis.del(cacheKey); // redisClient - це ваш інстанс Redis
+    }
+
+    res.json({ success: true });
   } catch (error) {
-    console.error('Помилка оновлення приватності фото:', error)
-    res.status(500).json({ success: false, message: 'Помилка сервера' })
+    console.error("Помилка оновлення приватності фото:", error);
+    res.status(500).json({ success: false, message: "Помилка сервера" });
   }
-})
-
-
+});
 
 export default router;

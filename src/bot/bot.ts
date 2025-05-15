@@ -26,8 +26,8 @@ bot.start(async (ctx) => {
 
     const checkHasProfile = await ProfileController.getProfileByUserId(userId);
 
-    if (checkHasProfile.date_block) {
-      return await ctx.reply(
+    if (checkHasProfile?.date_block) {
+       await ctx.reply(
         `ВАШ АККАУНТ ЗАБЛОКОВАНО\n\n\n❗❗❗${checkHasProfile.block_reason}❗❗❗\n\n\nДАТА БЛОКУВАННЯ: ${dayjs(checkHasProfile.date_block).format("D MMMM YYYY")}`,
         {
           reply_markup: {
@@ -35,13 +35,15 @@ bot.start(async (ctx) => {
           },
         }
       );
+      return
     }
     if (checkHasProfile && checkHasProfile.user_id && checkHasProfile.sex) {
-      return await ctx.reply("Твій профіль ✅", { reply_markup: MainKeyboard });
+       await ctx.reply("Твій профіль ✅", { reply_markup: MainKeyboard });
+       return
     }
 
     if (!checkHasProfile) {
-      await ctx.reply("Давай створимо тобі анкету ?");
+     
       await ctx.scene.enter("register-wizard");
       return;
     }
