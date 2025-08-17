@@ -40,6 +40,7 @@ export interface IUserProfile {
   max_age: number;
   description: string;
   photos: ProfilePhoto[];
+  status?: string;
 }
 export class ProfileService {
   // private readonly CACHE_TTL = 60 * 1; // 5 хвилин
@@ -167,33 +168,72 @@ export class ProfileService {
     }
   }
 
-async  sendProfilePhotos  (ctx: MyContext, profile: IUserProfile) {
-  if (!profile.photos || profile.photos.length === 0) return;
+  async sendProfilePhotos(ctx: MyContext, profile: IUserProfile) {
+    if (!profile.photos || profile.photos.length === 0) return;
 
-  const mediaGroup: InputMediaPhoto[] = profile.photos.map((photo, index) => ({
-    type: "photo",
-    media: photo.url,
-    caption:
-      index === 0
-        ? `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
-            profile.city || "Не вказано"
-          }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
-            profile.min_age
-          } - ${profile.max_age}\nLooking for: ${
-            profile.looking_for === 1
-              ? "👦"
-              : profile.looking_for === 2
-              ? "👧"
-              : profile.looking_for === 3
-              ? "👦👧"
-              : "❓"
-          }`
-        : undefined,
-  }));
+    const mediaGroup: InputMediaPhoto[] = profile.photos.map(
+      (photo, index) => ({
+        type: "photo",
+        media: photo.url,
+        caption:
+          index === 0
+            ? `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
+                profile.city || "Не вказано"
+              }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
+                profile.min_age
+              } - ${profile.max_age}\nLooking for: ${
+                profile.looking_for === 1
+                  ? "👦"
+                  : profile.looking_for === 2
+                    ? "👧"
+                    : profile.looking_for === 3
+                      ? "👦👧"
+                      : "❓"
+              }\n${profile.status ? "Status: " : "⛔Status is not set"}${profile.status}`
+            : undefined,
+      })
+    );
 
-  await ctx.replyWithMediaGroup(mediaGroup);
-};
+    await ctx.replyWithMediaGroup(mediaGroup);
 
+    console.log(profile, "PROFILE");
+  }
+
+  async updateStatus(userId: number, status: string) {
+    try {
+      const query = `
+        UPDATE tg_user_profile
+        SET status = $1
+        WHERE user_id = $2
+        RETURNING *;
+      `;
+      const values = [status, userId];
+      const result = await pool.query(query, values);
+
+      if (result.rows.length === 0) {
+        return null; // якщо не знайдено профіль
+      }
+
+      return result.rows[0]; // повертаємо оновлений профіль
+    } catch (error) {
+      console.error("Error updating status:", error);
+      throw new Error("Не вдалося оновити статус");
+    }
+  }
+
+  async activateProfile(userId: number) {
+    const result = await pool.query(
+      `UPDATE tg_user_profile SET is_hidden = false WHERE user_id = $1`,
+      [userId]
+    );
+
+    const cacheKey = `profile:${userId}`;
+
+    // // 1️⃣ Перевіряємо Redis
+    const cached = await redis.del(cacheKey);
+
+    return true;
+  }
 }
 
 export const tgProfileService = new ProfileService();

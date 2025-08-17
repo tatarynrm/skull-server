@@ -10,7 +10,7 @@ import {
 } from "../keyboards";
 import { getSexFromText } from "../helpers/sex-chose";
 import { getLookingForFromText } from "../helpers/looking-for-choose";
-import { getAfterRegisterKeyboard } from "../keyboards/after-register-kyboard";
+import { getAfterRegisterKeyboard } from "../keyboards/after-register.keyboard";
 import { sendProgressMessage } from "../helpers/progress-indicator";
 import { BotScenes } from "./types";
 import { uploadPhotoToCloudinary } from "../lib/cloudinary";

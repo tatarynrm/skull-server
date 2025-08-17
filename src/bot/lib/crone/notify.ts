@@ -8,7 +8,7 @@ import { t } from "../i18n";
 import { getLikesMessage } from "./helpers/translate-messages";
 
 // Черга з обмеженням одночасних відправок і швидкості
-const likeQueue = new PQueue({
+const likeQueue = new PQueue({ 
   concurrency: 10, // одночасно 10 повідомлень
   interval: 1000, // інтервал 1 секунда
   intervalCap: 20, // максимум 20 повідомлень на секунду

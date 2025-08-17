@@ -59,7 +59,7 @@
   "keyboard_edit_profile_description": "Edytuj opis profilu 📃",
   "keyboard_edit_profile_age": "Edytuj kategorię wiekową wyszukiwania 🔞",
   "keyboard_edit_profile_hide": "Ukryj profil w wyszukiwaniu 💀",
-  "edit_profile": "Wypełnij ankietę ponownie ✏️",
+  "edit_profile": "Wypełnij ankietę ponownie",
   "premium_description_text": "🎉 Witamy w świecie ekskluzywnych możliwości! Subskrypcja Premium daje ci:\n\n✨ **Nieograniczone możliwości randkowe** — większe szanse, aby znaleźć dokładnie tę osobę, której szukasz!\n💬 **Priorytet w czatach** — otrzymuj więcej uwagi i szybsze odpowiedzi od potencjalnych partnerów.\n🔒 **Lepsze bezpieczeństwo** — twoje dane i aktywność będą bezpieczne, ponieważ użytkownicy Premium mają dodatkowe opcje prywatności.\n🌟 **Ekskluzywne możliwości komunikacji** — dostęp do specjalnych funkcji czatu i galerii zdjęć.\n🎁 **Bonusy i prezenty** — regularne promocje i zniżki dla użytkowników Premium!\n\nZapomnij o ograniczeniach i korzystaj maksymalnie z każdej randki!\n\nSubskrybuj **Premium** i odkryj nowe horyzonty w świecie randek!",
   "tarif_plans": "Kup jeden z naszych planów taryfowych 🚀\nwybierz swój plan poniżej.",
   "premium_start": "✨ Start",
@@ -96,5 +96,6 @@
   "partner_max_age_looking_for": "Wiek wyszukiwania do",
   "profile_description_add_text": "Opowiedz o sobie, swoich hobby, czym się zajmujesz, pracujesz, uczysz się itd.",
   "incorect_city": "Niestety nie udało się znaleźć lokalizacji, którą podałeś. Spróbuj podać inne miejsce lub sprawdź pisownię",
-   "query_sent_to_admin":"Twoja wiadomość została pomyślnie dostarczona do administratora."
+  "query_sent_to_admin": "Twoja wiadomość została pomyślnie dostarczona do administratora.",
+  "age_label": "rok"
 }

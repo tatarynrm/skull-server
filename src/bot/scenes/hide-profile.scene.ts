@@ -6,6 +6,8 @@ import { getMainKeyboard, getMainKeyboardWhenIsHidden } from "../keyboards";
 import { BotScenes } from "./types";
 import { getHideMyProfileFromSearch } from "../keyboards/hide-profile.keyboard";
 import { sendProgressMessage } from "../helpers/progress-indicator";
+import { redis } from "../../utils/redis";
+import { tgProfileService } from "../services/profile.service";
 
 // Сцена для звернення до адміністратора
 const hideProfileScene = new Scenes.WizardScene<MyContext>(
@@ -29,7 +31,7 @@ const hideProfileScene = new Scenes.WizardScene<MyContext>(
 
     // Зберігаємо запит в базі даних
     await pool.query(
-      `UPDATE tg_user_profile SET is_hidden = NOT is_hidden WHERE user_id = $1`,
+      `UPDATE tg_user_profile SET is_hidden = true WHERE user_id = $1`,
       [ctx.message.from.id]
     );
     await sendProgressMessage(
@@ -37,7 +39,10 @@ const hideProfileScene = new Scenes.WizardScene<MyContext>(
       "system_indicator_start_deactivate_profile",
       "system_indicator_end_deactivate_profile"
     );
+    const cacheKey = `profile:${ctx.message?.from.id!}`;
 
+    // // 1️⃣ Перевіряємо Redis
+    const cached = await redis.del(cacheKey);
     // Підтвердження, що запит надіслано
     await ctx.reply(t(ctx.lang, "main_menu"), {
       reply_markup: getMainKeyboardWhenIsHidden(ctx),
@@ -55,11 +60,27 @@ hideProfileScene.use(async (ctx: MyContext, next) => {
       text.startsWith("/profile") ||
       text.includes(t(ctx.lang, "back_to_menu"))
     ) {
-      await ctx.reply(t(ctx.lang, "main_menu"), {
-        reply_markup: getMainKeyboard(ctx),
-      });
-      await ctx.scene.leave(); // виходимо зі сцени
-      return; // не виконуємо подальші кроки сцени
+      const cacheKey = `profile:${ctx.message?.from.id!}`;
+
+      // // 1️⃣ Перевіряємо Redis
+      const cached = await redis.del(cacheKey);
+      const profile = await tgProfileService.getProfileByUserId(
+        ctx.message.from.id
+      );
+
+      if (profile.is_hidden) {
+        await ctx.reply(t(ctx.lang, "main_menu"), {
+          reply_markup: getMainKeyboardWhenIsHidden(ctx),
+        });
+
+        return;
+      } else {
+        await ctx.reply(t(ctx.lang, "main_menu"), {
+          reply_markup: getMainKeyboard(ctx),
+        });
+        await ctx.scene.leave(); // Виходимо зі сцени
+        return;
+      }
     }
   }
   return next(); // продовжуємо звичайну обробку сцени

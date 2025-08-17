@@ -6,4 +6,5 @@ export enum BotScenes {
     ACTIVATE_PROFILE='activate-profile-scene',
     FIND_PARTNER='find-partner-scene',
     SEND_MESSAGE='send-message-scene',
+    PROFILE_STATUS_SAVE='profile-status-save-scene',
 }

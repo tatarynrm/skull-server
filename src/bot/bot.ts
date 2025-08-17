@@ -35,6 +35,7 @@ import { IUserProfile, tgProfileService } from "./services/profile.service";
 import { telegramUserService } from "./services/user.serivice";
 import { InputMediaPhoto } from "telegraf/typings/core/types/typegram";
 import { sendToAllUsers } from "./lib/queue";
+import setProfileStatusScene from "./scenes/profile-status.scene";
 
 // Create the bot instance with MyContext as the generic type
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN!);
@@ -53,6 +54,7 @@ const stage = new Scenes.Stage<MyContext>([
   activateProfileScene,
   findPartnerScene,
   sendMessageScene,
+  setProfileStatusScene
 ]);
 bot.use(async (ctx, next) => {
   const userId = ctx.message?.from.id!;
@@ -111,6 +113,8 @@ bot.command("profile", async (ctx) => {
   }
 
   if (profile.is_hidden) {
+ 
+    
     return await ctx.scene.enter(BotScenes.ACTIVATE_PROFILE);
   }
 
@@ -141,6 +145,9 @@ bot.on("text", async (ctx) => {
 
   if (text === t(ctx.lang, "create_profile")) {
     await ctx.scene.enter(BotScenes.REGISTER_SCENE);
+  }
+  if (text === t(ctx.lang, "set_profile_status")) {
+    await ctx.scene.enter(BotScenes.PROFILE_STATUS_SAVE);
   }
   if (text === t(ctx.lang, "reedit_profile")) {
     await ctx.scene.enter(BotScenes.REGISTER_SCENE);

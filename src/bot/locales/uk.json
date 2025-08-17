@@ -108,5 +108,6 @@
   "back_to_scene": "Повернутись назад",
   "yes_word": "Так",
   "no_word": "Ні",
-  "age_label": "рік"
+  "age_label": "рік",
+  "set_profile_status":"Налаштувати статус анкети"
 }

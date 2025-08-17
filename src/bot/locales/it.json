@@ -96,7 +96,6 @@
   "partner_max_age_looking_for": "Età di ricerca fino a",
   "profile_description_add_text": "Racconta di te stesso, i tuoi hobby, cosa fai, se lavori o studi, ecc.",
   "incorect_city": "Purtroppo non siamo riusciti a trovare la posizione che hai indicato. Prova a inserire un altro luogo o verifica la correttezza della scrittura.",
-     "query_sent_to_admin":"Il tuo messaggio è stato consegnato con successo all’amministratore."
-
-
+  "query_sent_to_admin": "Il tuo messaggio è stato consegnato con successo all’amministratore.",
+  "age_label": "anno"
 }

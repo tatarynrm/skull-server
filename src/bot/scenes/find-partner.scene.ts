@@ -6,14 +6,29 @@ import { getMainKeyboard } from "../keyboards";
 import { BotScenes } from "./types";
 import { profileService } from "../../services/profile.service";
 import { tgProfileService } from "../services/profile.service";
+import { InputMediaPhoto } from "telegraf/typings/core/types/typegram";
+import { redis } from "../../utils/redis";
+import { telegramUserService } from "../services/user.serivice";
 
-interface PartnerRow {
+export interface PartnerRow {
   user_id: number;
-  description: string;
+  name?: string;
+  city?: string;
   latitude: number;
   longitude: number;
+  age?: number;
+  date_block?: string | null;
+  block_reason?: string | null;
+  is_premium?: boolean | null;
+  sex?: number; // 1 = male, 2 = female, інші варіанти за потреби
+  looking_for?: number; // 1 = male, 2 = female, 3 = anyone
+  is_hidden?: boolean;
+  min_age?: number;
+  max_age?: number;
+  description?: string;
+  status?: string;
   distance: number;
-  name?: string;
+  photos?: string[];
 }
 
 export interface FindPartnerState {
@@ -29,9 +44,11 @@ const findPartnerScene = new Scenes.WizardScene<MyContext>(
   // Крок 1: вибір локації
   async (ctx) => {
     const userId = ctx.message?.from.id!;
-    const user = await tgProfileService.getProfileByUserId(userId);
+    const cacheKey = `profile:${userId}`;
+    await redis.del(cacheKey);
+    const profile = await tgProfileService.getProfileByUserId(userId);
 
-    if (!user || user.daily_likes <= 0) {
+    if (!profile || profile.daily_likes <= 0) {
       await ctx.reply(
         "У вас закінчились лайки. Купіть преміум аккаунт для безлімітних лайків!",
         { reply_markup: getMainKeyboard(ctx) }
@@ -65,6 +82,14 @@ const findPartnerScene = new Scenes.WizardScene<MyContext>(
     const userId = ctx.message?.from.id!;
     let latitude: number;
     let longitude: number;
+    await ctx.reply("👀 Starting search your love...", {
+      reply_markup: {
+        keyboard: [
+          [{ text: "😍" }, { text: "✉️" }, { text: "👎" }, { text: "👤" }],
+        ],
+        resize_keyboard: true,
+      },
+    });
 
     // Якщо користувач надіслав локацію
     if (ctx.message && "location" in ctx.message) {
@@ -96,18 +121,21 @@ const findPartnerScene = new Scenes.WizardScene<MyContext>(
     }
 
     // Тут робиш запит до БД з latitude/longitude
-    const res = await pool.query<PartnerRow>(
+    const res = await pool.query(
       `
-      SELECT user_id, name, description, latitude, longitude,
-      (6371000 * acos(
-        LEAST(1, GREATEST(-1, cos(radians($1)) * cos(radians(latitude)) *
-        cos(radians(longitude) - radians($2)) +
-        sin(radians($1)) * sin(radians(latitude))))))
-      AS distance
-      FROM tg_user_profile
-      WHERE user_id != $3
-      ORDER BY distance ASC
-      LIMIT 20
+  SELECT 
+    p.*,
+    (6371000 * acos(
+      LEAST(1, GREATEST(-1, cos(radians($1)) * cos(radians(p.latitude)) *
+      cos(radians(p.longitude) - radians($2)) +
+      sin(radians($1)) * sin(radians(p.latitude)))))) AS distance,
+    json_agg(ph.url) AS photos
+  FROM tg_user_profile p
+  LEFT JOIN tg_profile_photos ph ON ph.user_id = p.user_id
+  WHERE p.user_id != $3
+  GROUP BY p.user_id
+  ORDER BY distance ASC
+  LIMIT 20
   `,
       [latitude, longitude, userId]
     );
@@ -139,25 +167,45 @@ async function sendPartner(ctx: MyContext) {
 
   const partner = state.partners[state.index];
 
-  await ctx.reply(
-    `👤 ${partner.name || "Без імені"}\n📍 ${Math.round(partner.distance / 1000)} км\n📝 ${
-      partner.description || t(ctx.lang, "no_description")
-    }`,
-    {
-      reply_markup: {
-        keyboard: [
-          [{ text: "💘" }, { text: "✉️" }, { text: "⛔️" }, { text: "👤" }],
-        ],
-        resize_keyboard: true,
-      },
-    }
-  );
+  if (partner.photos && partner.photos.length > 0) {
+    const mediaGroup: InputMediaPhoto[] = partner.photos.map(
+      (photoUrl, index) => ({
+        type: "photo",
+        media: photoUrl,
+        caption:
+          index === 0
+            ? `👤 ${partner.name || "Без імені"}\n📍 ${Math.round(partner.distance / 1000)} км\n📝 ${
+                partner.description || t(ctx.lang, "no_description")
+              }\n__________________\nLooking age: ${partner.min_age || "?"} - ${
+                partner.max_age || "?"
+              }\nLooking for: ${
+                partner.looking_for === 1
+                  ? "👦"
+                  : partner.looking_for === 2
+                    ? "👧"
+                    : partner.looking_for === 3
+                      ? "👦👧"
+                      : "❓"
+              }\n${partner.status ? "Status: " + partner.status : ""}`
+            : undefined,
+      })
+    );
+
+    await ctx.replyWithMediaGroup(mediaGroup);
+  } else {
+    // Якщо фото немає, просто текст
+    await ctx.reply(
+      `👤 ${partner.name || "Без імені"}\n📍 ${Math.round(partner.distance / 1000)} км\n📝 ${
+        partner.description || t(ctx.lang, "no_description")
+      }`
+    );
+  }
 }
 
 // Обробка натискання кнопок
-findPartnerScene.hears("💘", async (ctx) => handleLikeDislike(ctx, "like"));
+findPartnerScene.hears("😍", async (ctx) => handleLikeDislike(ctx, "like"));
 findPartnerScene.hears("✉️", async (ctx) => handleMessage(ctx));
-findPartnerScene.hears("⛔️", async (ctx) => handleLikeDislike(ctx, "dislike"));
+findPartnerScene.hears("👎", async (ctx) => handleLikeDislike(ctx, "dislike"));
 findPartnerScene.hears("👤", async (ctx) => {
   await ctx.reply(t(ctx.lang, "main_menu"), {
     reply_markup: getMainKeyboard(ctx),
@@ -168,6 +216,11 @@ findPartnerScene.hears("👤", async (ctx) => {
 // Лайк / Дизлайк
 // Обробка лайку / дизлайку з оновленням лічильника
 async function handleLikeDislike(ctx: MyContext, type: "like" | "dislike") {
+  const cacheKey = `profile:${ctx.message?.from.id}`;
+
+  // // 1️⃣ Перевіряємо Redis
+  const cached = await redis.del(cacheKey);
+  const profile = await tgProfileService.getProfileByUserId(ctx.message?.from.id!);
   const state = ctx.wizard.state as FindPartnerState;
   if (!state || state.processing) return;
   state.processing = true;
@@ -188,8 +241,7 @@ async function handleLikeDislike(ctx: MyContext, type: "like" | "dislike") {
     await client.query("BEGIN");
 
     if (type === "like") {
-      const user = await profileService.getUserBiId(userId!);
-      if (!user || user.daily_likes <= 0) {
+      if (!profile || profile.daily_likes <= 0) {
         await ctx.reply(
           "У вас закінчились лайки на сьогодні. Купіть преміум для безлімітних лайків!",
           { reply_markup: getMainKeyboard(ctx) }
@@ -208,9 +260,9 @@ async function handleLikeDislike(ctx: MyContext, type: "like" | "dislike") {
       );
 
       await client.query(
-        `UPDATE tg_user
+        `UPDATE tg_user_profile
          SET daily_likes = daily_likes - 1
-         WHERE tg_id = $1`,
+         WHERE user_id = $1`,
         [userId]
       );
     } else {
@@ -258,7 +310,9 @@ async function handleMessage(ctx: MyContext) {
 
 // Перехоплення тексту для повідомлень
 findPartnerScene.on("text", async (ctx, next) => {
-  const state = ctx.wizard.state as FindPartnerState & { messageTarget?: number };
+  const state = ctx.wizard.state as FindPartnerState & {
+    messageTarget?: number;
+  };
   const text = ctx.message?.text;
   if (!text) return;
 
@@ -273,7 +327,9 @@ findPartnerScene.on("text", async (ctx, next) => {
     text === t(ctx.lang, "back_to_menu")
   ) {
     delete state.messageTarget;
-    await ctx.reply(t(ctx.lang, "main_menu"), { reply_markup: getMainKeyboard(ctx) });
+    await ctx.reply(t(ctx.lang, "main_menu"), {
+      reply_markup: getMainKeyboard(ctx),
+    });
     return ctx.scene.leave();
   }
 
@@ -291,7 +347,7 @@ findPartnerScene.on("text", async (ctx, next) => {
 
       // Зменшення лічильника лайків
       await client.query(
-        `UPDATE tg_user SET daily_likes = daily_likes - 1 WHERE tg_id = $1`,
+        `UPDATE tg_user_profile SET daily_likes = daily_likes - 1 WHERE user_id = $1`,
         [userId]
       );
 

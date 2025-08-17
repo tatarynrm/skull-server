@@ -1,6 +1,6 @@
 {
   "start": "Hello! Choose your language:",
-  "lang_selected": "Language changed to Ukrainian 🇺🇦",
+  "lang_selected": "Language changed to English 🇬🇧",
   "greeting": "Welcome, {{name}}!",
   "whats_your_name": "What is your name?",
   "how_old": "How old are you?",
@@ -66,7 +66,7 @@
   "premium_medium": "💎 Medium",
   "premium_big_boss": "💰💰💰 BigBoss 💰💰💰",
   "premium_lotery": "💸Premium lottery 💸",
-  "premium_lotery_enter": "Lottery menu 😎😎😎\n\n\nYou can participate in the lottery once a day.\n\n\nIf you win, the premium is automatically credited to you for 24 hours",
+  "premium_lotery_enter": "Lottery menu 😎😎😎\n\nYou can participate in the lottery once a day.\n\nIf you win, the premium is automatically credited to you for 24 hours",
   "participate_in_lottery": "Participate in the premium lottery 🃏",
   "unknown_answer": "This answer does not exist. Please choose one of the options!",
   "success_is_hidden_on": "⛔⛔⛔ Disabled ⛔⛔⛔",
@@ -80,13 +80,13 @@
   "system_indicator_end_deactivate_profile": "Profile deactivated ⛔",
   "system_indicator_start_create_profile": "🚨 Creating profile... 0%",
   "system_indicator_end_create_profile": "Profile creation successful ✅",
-  "system_next_steps": "Complete the registration to start using the bot 🥰🥰🥰\n\n\nAdventures await you 🤪",
+  "system_next_steps": "Complete the registration to start using the bot 🥰🥰🥰\n\nAdventures await you 🤪",
   "incorrect_min_age": "Incorrect minimum age for search. Only numbers!",
   "incorrect_max_age": "Incorrect maximum age for search. Only numbers",
   "max_age_for_partner": "Enter the maximum age for profiles in search",
   "min_age_for_partner": "Enter the minimum age for profiles in search",
-  "age_mismatch": "You indicated that you are {{your_age}}. Therefore, you cannot search for profiles younger than 16 years old.\n\n\nPlease provide the correct age",
-  "profile_pre_creation_question": "This is how your profile looks. Shall we proceed with matchmaking?\n\n\nOr should we refill the questionnaire?\n\n\nChoose an option below",
+  "age_mismatch": "You indicated that you are {{your_age}}. Therefore, you cannot search for profiles younger than 16 years old.\n\nPlease provide the correct age",
+  "profile_pre_creation_question": "This is how your profile looks. Shall we proceed with matchmaking?\n\nOr should we refill the questionnaire?\n\nChoose an option below",
   "need_photo": "Only photos are supported! 📸",
   "register_again": "Let’s start over...",
   "reedit_profile": "Refill the questionnaire",
@@ -97,5 +97,7 @@
   "profile_description_add_text": "Tell us about yourself, your hobbies, what you do, whether you work, study, etc.",
   "incorect_city": "Unfortunately, we couldn't find the location you provided. Try entering another place or check the spelling.",
   "query_sent_to_admin": "Your message has been successfully delivered to the administrator.",
-   "use_profile_location": "Start search🔎"
+  "use_profile_location": "Start search🔎",
+  "age_label": "years",
+  "set_profile_status": "Set profile status"
 }

@@ -34,18 +34,7 @@ class ProfileService {
 
     return user;
   }
-  async activateProfile(userId: number) {
-    const result = await pool.query(
-      `UPDATE tg_user_profile SET is_hidden = false WHERE user_id = $1`,
-      [userId]
-    );
 
-    if (result.rowCount) {
-      return true;
-    } else {
-      return false;
-    }
-  }
 }
 
 export const profileService = new ProfileService();

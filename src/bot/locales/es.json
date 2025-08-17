@@ -1,6 +1,6 @@
 {
   "start": "¡Hola! Elige tu idioma:",
-  "lang_selected": "El idioma ha sido cambiado a ucraniano 🇺🇦",
+  "lang_selected": "El idioma ha sido cambiado a español 🇪🇸",
   "greeting": "¡Bienvenido, {{name}}!",
   "whats_your_name": "¿Cómo te llamas?",
   "how_old": "¿Cuántos años tienes?",
@@ -65,14 +65,14 @@
   "premium_start": "✨ Start",
   "premium_medium": "💎 Medium",
   "premium_big_boss": "💰💰💰 BigBoss 💰💰💰",
-  "premium_lotery": "💸Lotería Premium 💸",
-  "premium_lotery_enter": "Menú de la lotería 😎😎😎\n\n\nSolo puedes participar en la lotería una vez al día.\n\nSi eres el ganador, el Premium se asignará automáticamente durante 24 horas.",
+  "premium_lotery": "💸 Lotería Premium 💸",
+  "premium_lotery_enter": "Menú de la lotería 😎😎😎\n\nSolo puedes participar en la lotería una vez al día.\n\nSi eres el ganador, el Premium se asignará automáticamente durante 24 horas.",
   "participate_in_lottery": "Participar en la lotería Premium 🃏",
   "unknown_answer": "Esa respuesta no existe. ¡Por favor, selecciona una de las opciones!",
   "success_is_hidden_on": "⛔⛔⛔ Desactivado ⛔⛔⛔",
   "turn_on_profile": "Activar perfil para la búsqueda ✅",
   "profile_is_disabled": "Tu perfil está inactivo porque lo has desactivado de la búsqueda. Para activarlo, haz clic en el botón de abajo.",
-  "profile_is_active": "Tu perfil está ahora activo.\n\n\n¡Disfruta de tu experiencia🫡😎!",
+  "profile_is_active": "Tu perfil está ahora activo.\n\n¡Disfruta de tu experiencia🫡😎!",
   "system_something_went_wrong": "Algo salió mal. Puede haber problemas con el servidor. Intenta más tarde.",
   "system_indicator_start_activate_profile": "🚨 Activando perfil... 0%",
   "system_indicator_end_activate_profile": "Activación de perfil completada ✅",
@@ -91,7 +91,11 @@
   "register_again": "Comencemos de nuevo...",
   "reedit_profile": "Rellenar cuestionario nuevamente",
   "private_profile_data": "Datos privados que no se muestran a otros usuarios:",
+  "looking_for_text": "Búsqueda",
+  "partner_min_age_looking_for": "Edad mínima buscada",
+  "partner_max_age_looking_for": "Edad máxima buscada",
   "profile_description_add_text": "Cuéntanos sobre ti, tus hobbies, qué haces, si trabajas, estudias, etc.",
   "incorect_city": "Desafortunadamente, no pudimos encontrar la ubicación que proporcionaste. Intenta ingresar otro lugar o verifica la ortografía.",
-     "query_sent_to_admin":"Su mensaje ha sido entregado con éxito al administrador."
+  "query_sent_to_admin": "Su mensaje ha sido entregado con éxito al administrador.",
+  "age_label": "años"
 }
