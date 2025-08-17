@@ -10,7 +10,7 @@ const router = express.Router();
 // CORS для цього маршруту
 router.use(
   cors({
-    origin: ["https://skulldate.site", "http://localhost:80"], // дозволяємо доступ тільки з цього домену
+    origin: ["https://skulldate.site", "http://localhost:80",'http://localhost:3000'], // дозволяємо доступ тільки з цього домену
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })

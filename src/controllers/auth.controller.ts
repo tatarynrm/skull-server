@@ -19,7 +19,7 @@ export class AuthController {
     // Вставка або оновлення користувача
     await pool.query(
       `
-    INSERT INTO tg_users (tg_id, first_name, username, language_code, photo_url)
+    INSERT INTO tg_user (tg_id, first_name, username, language_code, photo_url)
     VALUES ($1, $2, $3, $4, $5)
     ON CONFLICT (tg_id) DO UPDATE
     SET 
@@ -39,9 +39,12 @@ export class AuthController {
 
     // Встановлення токена в cookie
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
+  
+    httpOnly: false, // має збігатись з тим, як було встановлено
+    secure: false,   // або false — точно так само, як під час set
+    sameSite: "lax",
+    path: "/",      // дуже важливо! зазвичай треба явно вказати path
+
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 днів
     });
 
@@ -65,7 +68,7 @@ export class AuthController {
       };
 
       const userCheck = await pool.query(
-        "SELECT * FROM tg_users WHERE tg_id = $1",
+        "SELECT * FROM tg_user WHERE tg_id = $1",
         [decoded.id]
       );
 
@@ -74,37 +77,20 @@ export class AuthController {
         res.status(404).json({ message: "User not found" });
       }
 
+
       res.json(existUser);
     } catch (error) {
       console.error("JWT error:", error);
       res.status(401).json({ message: "Invalid token" });
     }
   };
-  // getProfile = async (req: Request, res: Response) => {
-  //  const {user_id} = req.body
 
-  //   try {
-
-  //     const userCheck = await pool.query(
-  //       "SELECT * FROM users_profiles WHERE user_id = $1",
-  //    [user_id]
-  //     );
-
-  //     const existUser = userCheck.rows[0];
-  //     if (!existUser) {
-  //       res.status(404).json({ message: "User not found" });
-  //     }
-
-  //     res.json(existUser);
-  //   } catch (error) {
-
-  //     res.status(401).json({ message: "Invalid token" });
-  //   }
-  // };
   getProfile = async (req: Request, res: Response) => {
     const { user_id } = req.body;
 
-    const cacheKey = `user_profile:${user_id}`;
+    const cacheKey = `tg_user_profile:${user_id}`;
+    console.log('user id ',user_id);
+    
 
     try {
       // Спроба отримати з Redis
@@ -119,7 +105,7 @@ export class AuthController {
 
       // Якщо в кеші нема — беремо з БД
       const userCheck = await pool.query(
-        "SELECT * FROM users_profiles WHERE user_id = $1",
+        "SELECT * FROM tg_user_profile WHERE user_id = $1",
         [user_id]
       );
 
@@ -145,12 +131,12 @@ export class AuthController {
     }
   };
   logout = (req: Request, res: Response) => {
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-    });
-
+  res.clearCookie("token", {
+    httpOnly: false, // має збігатись з тим, як було встановлено
+    secure: false,   // або false — точно так само, як під час set
+    sameSite: "lax",
+    path: "/",      // дуже важливо! зазвичай треба явно вказати path
+  })
     res.status(200).json({ message: "Logged out" });
   };
 }

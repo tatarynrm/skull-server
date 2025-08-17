@@ -1,0 +1,5 @@
+{
+  "start": "Hello! Choose your language:",
+  "lang_selected": "Language changed to English 🇬🇧",
+  "greeting": "Welcome, {{name}}!"
+}

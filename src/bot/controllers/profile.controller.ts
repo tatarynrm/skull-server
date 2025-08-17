@@ -15,7 +15,7 @@ export class ProfileController {
     try {
       const result = await pool.query(
         `
-        INSERT INTO users_profiles (user_id, name, age, sex, city, latitude, longitude, looking_for, photos)
+        INSERT INTO tg_user_profile (user_id, name, age, sex, city, latitude, longitude, looking_for, photos)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (user_id)
         DO UPDATE SET
@@ -52,7 +52,7 @@ export class ProfileController {
 static async getProfileByUserId(userId: number) {
   try {
     const result = await pool.query(
-      `SELECT * FROM users_profiles WHERE user_id = $1`,
+      `SELECT * FROM tg_user_profile WHERE user_id = $1`,
       [userId]
     );
 
