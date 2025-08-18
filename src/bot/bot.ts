@@ -1,13 +1,12 @@
 import dotenv from "dotenv";
 dotenv.config();
-import { Markup, Scenes, session, Telegraf } from "telegraf";
+import { Scenes, session, Telegraf } from "telegraf";
 import { MyContext } from "./types/bot-context"; // Your custom context type
 import registerScene from "./scenes/register-profile.scene";
 // import './lib/crone/notify'
 import {
   getBeforeRegisterKeyboard,
   getMainKeyboard,
-  getMainKeyboardWhenIsHidden,
   getProfileKeyboard,
   getSettingsKeyboard,
 } from "./keyboards";
@@ -54,7 +53,7 @@ const stage = new Scenes.Stage<MyContext>([
   activateProfileScene,
   findPartnerScene,
   sendMessageScene,
-  setProfileStatusScene
+  setProfileStatusScene,
 ]);
 bot.use(async (ctx, next) => {
   const userId = ctx.message?.from.id!;
@@ -113,8 +112,6 @@ bot.command("profile", async (ctx) => {
   }
 
   if (profile.is_hidden) {
- 
-    
     return await ctx.scene.enter(BotScenes.ACTIVATE_PROFILE);
   }
 
@@ -132,18 +129,17 @@ bot.command("help", async (ctx) => {
     reply_markup: getHelpKeyboard(ctx),
   });
 });
-bot.hears('/web',async ctx =>{
+bot.hears("/web", async (ctx) => {
   console.log(ctx.message.from.id);
-  
-  const url = `https://7878d67cc2eb.ngrok-free.app/${ctx.message.from.id}`;
+
+  // const url = `${process.env.SERVER_URL}/${ctx.message.from.id}`;
+  const url = `https://3ec1095ceb1d.ngrok-free.app/${ctx.message.from.id}`;
   return ctx.reply("Відкрити додаток", {
     reply_markup: {
-      inline_keyboard: [
-        [{ text: "Веб-додаток", web_app: { url } }]
-      ]
-    }
+      inline_keyboard: [[{ text: "Веб-додаток", web_app: { url } }]],
+    },
   });
-})
+});
 
 bot.on("text", async (ctx) => {
   if (!("text" in ctx.message)) return; // перевіряємо, що це текстове повідомлення
@@ -220,8 +216,6 @@ bot.on("text", async (ctx) => {
   }
 });
 
-
-
 // bot.telegram.sendMessage()
 // Робочий варіант, просто закоментував!
 // bot.on("callback_query", async (ctx) => {
@@ -237,7 +231,7 @@ bot.on("text", async (ctx) => {
 //     switch (data) {
 //       case "subscribe_premium":
 //         await ctx.answerCbQuery("Ви підписалися на Premium!");
-//         await ctx.telegram.editMessageText(chatId, messageId , undefined, 
+//         await ctx.telegram.editMessageText(chatId, messageId , undefined,
 //           "Дякуємо за підписку на Premium!", { parse_mode: "HTML" });
 //         break;
 
