@@ -133,7 +133,7 @@ bot.hears("/web", async (ctx) => {
   console.log(ctx.message.from.id);
 
   // const url = `${process.env.SERVER_URL}/${ctx.message.from.id}`;
-  const url = `https://3ec1095ceb1d.ngrok-free.app/${ctx.message.from.id}`;
+  const url = `https://skulldate.site/${ctx.message.from.id}`;
   return ctx.reply("Відкрити додаток", {
     reply_markup: {
       inline_keyboard: [[{ text: "Веб-додаток", web_app: { url } }]],
