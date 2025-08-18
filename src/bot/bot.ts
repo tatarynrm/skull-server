@@ -3,7 +3,7 @@ dotenv.config();
 import { Markup, Scenes, session, Telegraf } from "telegraf";
 import { MyContext } from "./types/bot-context"; // Your custom context type
 import registerScene from "./scenes/register-profile.scene";
-import './lib/crone/notify'
+// import './lib/crone/notify'
 import {
   getBeforeRegisterKeyboard,
   getMainKeyboard,
