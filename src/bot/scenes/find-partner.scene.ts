@@ -9,6 +9,7 @@ import { tgProfileService } from "../services/profile.service";
 import { InputMediaPhoto } from "telegraf/typings/core/types/typegram";
 import { redis } from "../../utils/redis";
 import { telegramUserService } from "../services/user.serivice";
+import { tgLikeService } from "../services/like.service";
 
 export interface PartnerRow {
   user_id: number;
@@ -220,7 +221,9 @@ async function handleLikeDislike(ctx: MyContext, type: "like" | "dislike") {
 
   // // 1️⃣ Перевіряємо Redis
   const cached = await redis.del(cacheKey);
-  const profile = await tgProfileService.getProfileByUserId(ctx.message?.from.id!);
+  const profile = await tgProfileService.getProfileByUserId(
+    ctx.message?.from.id!
+  );
   const state = ctx.wizard.state as FindPartnerState;
   if (!state || state.processing) return;
   state.processing = true;
@@ -264,6 +267,14 @@ async function handleLikeDislike(ctx: MyContext, type: "like" | "dislike") {
          SET daily_likes = daily_likes - 1
          WHERE user_id = $1`,
         [userId]
+      );
+      await tgLikeService.addLikeHistoryRecord(
+        ctx.message?.from.id!,
+        partner.user_id
+      );
+      await tgLikeService.updateUserStats(
+        ctx.message?.from.id!,
+        partner.user_id
       );
     } else {
       await client.query(

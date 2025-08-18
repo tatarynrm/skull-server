@@ -132,6 +132,19 @@ bot.command("help", async (ctx) => {
     reply_markup: getHelpKeyboard(ctx),
   });
 });
+bot.hears('/web',async ctx =>{
+  console.log(ctx.message.from.id);
+  
+  const url = `https://7878d67cc2eb.ngrok-free.app/${ctx.message.from.id}`;
+  return ctx.reply("Відкрити додаток", {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "Веб-додаток", web_app: { url } }]
+      ]
+    }
+  });
+})
+
 bot.on("text", async (ctx) => {
   if (!("text" in ctx.message)) return; // перевіряємо, що це текстове повідомлення
   const text = ctx.message.text;
@@ -206,6 +219,7 @@ bot.on("text", async (ctx) => {
     await ctx.scene.enter(BotScenes.ACTIVATE_PROFILE);
   }
 });
+
 
 
 // bot.telegram.sendMessage()
