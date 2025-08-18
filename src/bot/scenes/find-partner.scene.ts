@@ -4,11 +4,9 @@ import { MyContext } from "../types/bot-context";
 import { t } from "../lib/i18n";
 import { getMainKeyboard } from "../keyboards";
 import { BotScenes } from "./types";
-import { profileService } from "../../services/profile.service";
 import { tgProfileService } from "../services/profile.service";
 import { InputMediaPhoto } from "telegraf/typings/core/types/typegram";
 import { redis } from "../../utils/redis";
-import { telegramUserService } from "../services/user.serivice";
 import { tgLikeService } from "../services/like.service";
 
 export interface PartnerRow {
@@ -122,25 +120,46 @@ const findPartnerScene = new Scenes.WizardScene<MyContext>(
     }
 
     // Тут робиш запит до БД з latitude/longitude
+    //   const res = await pool.query(
+    //     `
+    // SELECT
+    //   p.*,
+    //   (6371000 * acos(
+    //     LEAST(1, GREATEST(-1, cos(radians($1)) * cos(radians(p.latitude)) *
+    //     cos(radians(p.longitude) - radians($2)) +
+    //     sin(radians($1)) * sin(radians(p.latitude)))))) AS distance,
+    //   json_agg(ph.url) AS photos
+    // FROM tg_user_profile p
+    // LEFT JOIN tg_profile_photos ph ON ph.user_id = p.user_id
+    // WHERE p.user_id != $3
+    // GROUP BY p.user_id
+    // ORDER BY distance ASC
+    // LIMIT 100
+    // `,
     const res = await pool.query(
       `
-  SELECT 
+SELECT 
     p.*,
     (6371000 * acos(
       LEAST(1, GREATEST(-1, cos(radians($1)) * cos(radians(p.latitude)) *
       cos(radians(p.longitude) - radians($2)) +
       sin(radians($1)) * sin(radians(p.latitude)))))) AS distance,
     json_agg(ph.url) AS photos
-  FROM tg_user_profile p
-  LEFT JOIN tg_profile_photos ph ON ph.user_id = p.user_id
-  WHERE p.user_id != $3
-  GROUP BY p.user_id
-  ORDER BY distance ASC
-  LIMIT 20
+FROM tg_user_profile p
+LEFT JOIN tg_profile_photos ph ON ph.user_id = p.user_id
+WHERE p.user_id != $3
+  AND NOT EXISTS (
+    SELECT 1
+    FROM tg_user_likes l
+    WHERE l.from_user_id = $3
+      AND l.to_user_id = p.user_id
+  )
+GROUP BY p.user_id
+ORDER BY distance ASC
+LIMIT 20
   `,
       [latitude, longitude, userId]
     );
-
     if (!res.rows.length) {
       await ctx.reply(t(ctx.lang, "no_partners_nearby"), {
         reply_markup: getMainKeyboard(ctx),

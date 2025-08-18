@@ -5,9 +5,9 @@
   "whats_your_name": "What is your name?",
   "how_old": "How old are you?",
   "your_sex": "What is your gender?",
-  "your_city": "Enter your city/village",
+  "your_city": "Enter your city/town or use the button below to share your location 📍",
   "looking_for": "Who are you looking for?",
-  "send_photo": "Send a photo to add to your profile (max. 1).",
+  "send_photo": "Send a photo to add to your profile (max. 3).",
   "invalid_age": "Please enter a valid age.",
   "next_steps": "Your next steps",
   "change_language": "Change language 🗣️",
@@ -99,5 +99,13 @@
   "query_sent_to_admin": "Your message has been successfully delivered to the administrator.",
   "use_profile_location": "Start search🔎",
   "age_label": "years",
-  "set_profile_status": "Set profile status"
+  "yes_word": "Yes",
+  "no_word": "No",
+  "set_profile_status": "Set profile status",
+  "request_location_button": "📍 Share location",
+  "age_mismatch_max_lower_min": "The maximum search age cannot be lower than the minimum search age.",
+  "want_add_another_photo": "Do you want to add another photo?",
+  "final_step": "This is how your profile will look.\nShall we continue?\nOr do you want to fill it out again?",
+ "welcome_new_profile": "🎉 Congratulations! Your profile has been successfully created!\n\n✨ Now you are ready to meet other users.\n\n💌 Browse people nearby, chat, and make new connections!\n\n❤️ Wishing you enjoyable conversations and exciting experiences!",
+  "send_photo_again": "Надіслати фото ще раз"
 }

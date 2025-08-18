@@ -6,7 +6,7 @@ export const ProfileKeyboard = {
     [{ text: "✏️ Редагувати анкету" }],
     [{ text: "🖼 Змінити фото" }],
     [{ text: "🗑 Видалити анкету" }],
-    [{ text: "⬅️ Назад у меню" }]
+    [{ text: "⬅️ Назад у меню" }],
   ],
   resize_keyboard: true,
 };
@@ -14,14 +14,17 @@ export const ProfileKeyboard = {
 export function getProfileKeyboard(ctx: MyContext) {
   return {
     keyboard: [
-    [{ text: t(ctx.lang,"keyboard_edit_profile") }],
-    [{ text: t(ctx.lang,"keyboard_edit_profile_picture") },{ text: t(ctx.lang,"keyboard_edit_profile_description") }],
-    [{ text: t(ctx.lang,"keyboard_edit_profile_age") }],
-    [{ text: t(ctx.lang,"keyboard_edit_profile_hide") }],
-    [{ text: t(ctx.lang,"back_to_menu") }],
+      [{ text: t(ctx.lang, "keyboard_edit_profile") }],
+      [{ text: t(ctx.lang, "set_profile_status") }],
+      [
+        { text: t(ctx.lang, "keyboard_edit_profile_picture") },
+        { text: t(ctx.lang, "keyboard_edit_profile_description") },
+      ],
+      [{ text: t(ctx.lang, "keyboard_edit_profile_age") }],
+      [{ text: t(ctx.lang, "keyboard_edit_profile_hide") }],
+      [{ text: t(ctx.lang, "back_to_menu") }],
     ],
     resize_keyboard: true,
-    one_time_keyboard: true,  // Закрити клавіатуру після вибору
+    one_time_keyboard: true, // Закрити клавіатуру після вибору
   };
 }
-

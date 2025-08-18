@@ -10,6 +10,11 @@ export async function uploadPhotoToCloudinary(fileUrl: string, userId: number) {
   try {
     const result = await cloudinary.uploader.upload(fileUrl, {
       folder: `profiles/${userId}`,
+      transformation: [
+        { width: 600, height: 600, crop: "limit" },
+        { quality: "auto" },
+        { fetch_format: "auto" },
+      ],
     });
     return result.secure_url;
   } catch (error) {

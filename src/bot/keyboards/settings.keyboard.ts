@@ -8,7 +8,6 @@ export function getSettingsKeyboard(ctx: MyContext) {
         { text: t(ctx.lang, "change_language") },
         { text: t(ctx.lang, "search_filter") },
       ],
-      [{ text: t(ctx.lang, "set_profile_status") }],
       [{ text: t(ctx.lang, "hide_my_profile") }],
       [{ text: t(ctx.lang, "back_to_menu") }],
     ],

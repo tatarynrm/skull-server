@@ -5,8 +5,8 @@ export function getAfterRegisterKeyboard(ctx: MyContext) {
   return {
     keyboard: [
       [
-        { text: t(ctx.lang, "keyboard_go_to_dating") },
         { text: t(ctx.lang, "keyboard_refil_questionnaire") },
+        { text: t(ctx.lang, "keyboard_go_to_dating") },
       ],
     ],
     resize_keyboard: true,

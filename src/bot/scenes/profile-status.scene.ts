@@ -50,7 +50,7 @@ const setProfileStatusScene = new Scenes.WizardScene<MyContext>(
     if (ctx.message && "text" in ctx.message) {
       const text = ctx.message.text;
 
-      console.log(text, "TESTTTTTTTTTTTTTT");
+
 
       // Якщо користувач натиснув "Назад у меню"
       if (text === t(ctx.lang, "back_to_menu")) {

@@ -42,7 +42,40 @@ const geocodeByCityName = async (city: string) => {
     return "Помилка при виконанні запиту.";
   }
 };
+async function geocodeByCoords(lat: number, lng: number) {
+  const res = await fetch(
+    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}`
+  );
+  const data = await res.json();
 
+  if (!data.results || !data.results[0]) return null;
+
+  const components = data.results[0].address_components;
+
+  // шукаємо населений пункт
+  const cityComponent =
+    components.find((c: { types: string | string[] }) =>
+      c.types.includes("locality")
+    ) || // місто
+    components.find((c: { types: string | string[] }) =>
+      c.types.includes("administrative_area_level_3")
+    ) || // смт/село
+    components.find((c: { types: string | string[] }) =>
+      c.types.includes("administrative_area_level_2")
+    ) || // fallback
+    components.find((c: { types: string | string[] }) =>
+      c.types.includes("postal_town")
+    ); // UK, інші країни
+
+  const city = cityComponent ? cityComponent.long_name : null;
+
+  return {
+    city,
+    raw: data.results[0],
+    latitude: lat,
+    longitude: lng,
+  };
+}
 const registerScene = new Scenes.WizardScene<MyContext>(
   BotScenes.REGISTER_SCENE,
 
@@ -97,33 +130,108 @@ const registerScene = new Scenes.WizardScene<MyContext>(
   },
 
   // Крок 4: обробка статі
+  // async (ctx) => {
+  //   if (ctx.message && "text" in ctx.message) {
+  //     const sex = getSexFromText(ctx.message.text, ctx.lang || "en");
+  //     if (sex) {
+  //       ctx.scene.session.registrationData.sex = Number(sex);
+  //       await ctx.reply(t(ctx.lang, "your_city"), {
+  //         reply_markup: { remove_keyboard: true },
+  //       });
+  //       return ctx.wizard.next();
+  //     } else {
+  //       await ctx.reply(t(ctx.lang, "unknown_answer"));
+  //     }
+  //   }
+  // },
+
+  // Крок 5: обробка міста
+  // async (ctx) => {
+  //   if (ctx.message && "text" in ctx.message) {
+  //     const city = ctx.message.text;
+  //     const geocoded = await geocodeByCityName(city);
+  //     if (
+  //       geocoded === "Incorect city"
+  //     ) {
+  //       await ctx.reply(t(ctx.lang, "incorect_city"));
+  //       return;
+  //     }
+  //     ctx.scene.session.registrationData.city =
+  //       geocoded.address_components[0].long_name;
+  //     ctx.scene.session.registrationData.latitude =
+  //       geocoded.geometry.location.lat;
+  //     ctx.scene.session.registrationData.longitude =
+  //       geocoded.geometry.location.lng;
+
+  //     await ctx.reply(`📍 ${ctx.scene.session.registrationData.city}`);
+  //     await ctx.reply(t(ctx.lang, "looking_for"), {
+  //       reply_markup: getChooseMaleKeyboard(ctx),
+  //     });
+  //     return ctx.wizard.next();
+  //   }
+  // },
   async (ctx) => {
     if (ctx.message && "text" in ctx.message) {
       const sex = getSexFromText(ctx.message.text, ctx.lang || "en");
       if (sex) {
         ctx.scene.session.registrationData.sex = Number(sex);
+
         await ctx.reply(t(ctx.lang, "your_city"), {
-          reply_markup: { remove_keyboard: true },
+          reply_markup: {
+            keyboard: [
+              [
+                {
+                  text: t(ctx.lang, "request_location_button"),
+                  request_location: true,
+                },
+              ],
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true,
+          },
         });
+
         return ctx.wizard.next();
       } else {
         await ctx.reply(t(ctx.lang, "unknown_answer"));
       }
     }
   },
-
-  // Крок 5: обробка міста
   async (ctx) => {
-    if (ctx.message && "text" in ctx.message) {
-      const city = ctx.message.text;
-      const geocoded = await geocodeByCityName(city);
-      if (
-        geocoded === "Incorect city" ||
-        geocoded === "Помилка при виконанні запиту."
-      ) {
+    // Якщо користувач поділився геолокацією
+    if (ctx.message && "location" in ctx.message) {
+      const { latitude, longitude } = ctx.message.location;
+      const geocoded = await geocodeByCoords(latitude, longitude); // функція для геокодування координат
+
+      if (!geocoded) {
         await ctx.reply(t(ctx.lang, "incorect_city"));
         return;
       }
+
+      ctx.scene.session.registrationData.city = geocoded.city;
+      ctx.scene.session.registrationData.latitude = latitude;
+      ctx.scene.session.registrationData.longitude = longitude;
+
+      await ctx.reply(`📍 ${ctx.scene.session.registrationData.city}`, {
+        reply_markup: { remove_keyboard: true },
+      });
+
+      await ctx.reply(t(ctx.lang, "looking_for"), {
+        reply_markup: getChooseMaleKeyboard(ctx),
+      });
+      return ctx.wizard.next();
+    }
+
+    // Якщо користувач ввів місто текстом
+    if (ctx.message && "text" in ctx.message) {
+      const city = ctx.message.text;
+      const geocoded = await geocodeByCityName(city);
+
+      if (!geocoded || geocoded === "Incorect city") {
+        await ctx.reply(t(ctx.lang, "incorect_city"));
+        return;
+      }
+
       ctx.scene.session.registrationData.city =
         geocoded.address_components[0].long_name;
       ctx.scene.session.registrationData.latitude =
@@ -131,7 +239,10 @@ const registerScene = new Scenes.WizardScene<MyContext>(
       ctx.scene.session.registrationData.longitude =
         geocoded.geometry.location.lng;
 
-      await ctx.reply(`📍 ${ctx.scene.session.registrationData.city}`);
+      await ctx.reply(`📍 ${ctx.scene.session.registrationData.city}`, {
+        reply_markup: { remove_keyboard: true },
+      });
+
       await ctx.reply(t(ctx.lang, "looking_for"), {
         reply_markup: getChooseMaleKeyboard(ctx),
       });
@@ -182,6 +293,15 @@ const registerScene = new Scenes.WizardScene<MyContext>(
         await ctx.reply(t(ctx.lang, "incorrect_max_age"));
         return;
       }
+
+      if (ctx.scene.session.registrationData.minAge! >= maxAge) {
+        await ctx.reply(
+          t(ctx.lang, "age_mismatch_max_lower_min", {
+            your_age: ctx.scene.session.registrationData.age!,
+          })
+        );
+        return;
+      }
       ctx.scene.session.registrationData.maxAge = maxAge;
 
       await ctx.reply(t(ctx.lang, "profile_description_add_text"), {
@@ -194,6 +314,12 @@ const registerScene = new Scenes.WizardScene<MyContext>(
   // Крок 9: опис профілю
   async (ctx) => {
     if (ctx.message && "text" in ctx.message) {
+      const text = ctx.message.text;
+
+      if (text.length > 600) {
+        await ctx.reply("Занадто великий опис, максимум 600 символів");
+        return;
+      }
       ctx.scene.session.registrationData.description = ctx.message.text;
 
       await ctx.reply(t(ctx.lang, "send_photo"), {
@@ -264,6 +390,9 @@ const registerScene = new Scenes.WizardScene<MyContext>(
       }
 
       if (text === t(ctx.lang, "no_word").toLowerCase()) {
+      // тут додати показ анкети
+
+      await tgProfileService.sendProfilePhotosPreRegisterShow(ctx)
         await ctx.reply(t(ctx.lang, "final_step"), {
           reply_markup: getAfterRegisterKeyboard(ctx),
         });
@@ -278,7 +407,7 @@ const registerScene = new Scenes.WizardScene<MyContext>(
   async (ctx) => {
     if (ctx.message && "text" in ctx.message) {
       const text = ctx.message.text;
-      console.log("TEXTTTTTTTTTTTTTTTTT", text);
+    
 
       if (text === t(ctx.lang, "keyboard_go_to_dating")) {
         // Якщо користувач вибирає перейти до знайомств
@@ -303,7 +432,7 @@ const registerScene = new Scenes.WizardScene<MyContext>(
               lookingFor: data.lookingFor ?? 0,
               minAge: data.minAge ?? 0,
               maxAge: data.maxAge ?? 0,
-              description: data.description ?? "",
+              description: data.description ?? "", 
               photos: Array.isArray(data.photos)
                 ? data.photos.map((p) => p.url)
                 : [],
@@ -314,7 +443,7 @@ const registerScene = new Scenes.WizardScene<MyContext>(
               "system_indicator_end_create_profile"
             );
             // Перехід до знайомств
-            await ctx.reply(t(ctx.lang, "welcome_to_dating"), {
+            await ctx.reply(t(ctx.lang, "welcome_new_profile"), {
               reply_markup: getMainKeyboard(ctx),
             });
 

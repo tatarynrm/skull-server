@@ -35,6 +35,7 @@ import { telegramUserService } from "./services/user.serivice";
 import { InputMediaPhoto } from "telegraf/typings/core/types/typegram";
 import { sendToAllUsers } from "./lib/queue";
 import setProfileStatusScene from "./scenes/profile-status.scene";
+import { startAllCronJobs } from "./cron-jobes";
 
 // Create the bot instance with MyContext as the generic type
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN!);
@@ -269,5 +270,5 @@ bot.on("text", async (ctx) => {
 
 // const message = `<b>Привіт, користувачу!</b>\nЦе <i>тестове повідомлення</i> з <a href="https://example.com">посиланням</a>.`;
 // sendToAllUsers(message);
-
+startAllCronJobs()
 export default bot;

@@ -50,7 +50,7 @@ export class LikeService {
         `SELECT age, sex FROM tg_user_profile WHERE user_id = $1`,
         [likerUserId]
       );
-      console.log(rows, "ROWS");
+ 
 
       if (!rows[0]) return;
 
