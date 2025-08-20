@@ -101,11 +101,12 @@
   "age_label": "years",
   "yes_word": "Yes",
   "no_word": "No",
-  "set_profile_status": "Set profile status",
+  "set_profile_status": "Set profile status 🤌🏻",
   "request_location_button": "📍 Share location",
   "age_mismatch_max_lower_min": "The maximum search age cannot be lower than the minimum search age.",
   "want_add_another_photo": "Do you want to add another photo?",
   "final_step": "This is how your profile will look.\nShall we continue?\nOr do you want to fill it out again?",
- "welcome_new_profile": "🎉 Congratulations! Your profile has been successfully created!\n\n✨ Now you are ready to meet other users.\n\n💌 Browse people nearby, chat, and make new connections!\n\n❤️ Wishing you enjoyable conversations and exciting experiences!",
-  "send_photo_again": "Надіслати фото ще раз"
+  "welcome_new_profile": "🎉 Congratulations! Your profile has been successfully created!\n\n✨ Now you are ready to meet other users.\n\n💌 Browse people nearby, chat, and make new connections!\n\n❤️ Wishing you enjoyable conversations and exciting experiences!",
+  "send_photo_again": "Надіслати фото ще раз",
+  "photos_uploaded_max": "You have uploaded the maximum number of photos: 3"
 }

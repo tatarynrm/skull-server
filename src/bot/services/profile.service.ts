@@ -6,6 +6,7 @@ import { redis } from "../../utils/redis";
 import { deletePhotoFromCloudinary } from "../lib/cloudinary";
 import { MyContext } from "../types/bot-context";
 import { t } from "../lib/i18n";
+import { deletePhotoFromS3 } from "../../utils/amazon-s3";
 export interface UserProfileData {
   user_id: number;
   name: string;
@@ -139,7 +140,8 @@ export class ProfileService {
 
       for (const row of oldPhotos.rows) {
         try {
-          await deletePhotoFromCloudinary(row.url);
+          // await deletePhotoFromCloudinary(row.url);
+         await deletePhotoFromS3(row.url)
         } catch (err) {
           console.error("Error deleting photo from Cloudinary:", err);
         }
@@ -170,8 +172,11 @@ export class ProfileService {
   }
 
 async sendProfilePhotos(ctx: MyContext, profile: IUserProfile) {
-  if (!profile.photos || profile.photos.length === 0) {
-    // Відправляємо тільки текст, якщо немає фото
+  // Фільтруємо тільки валідні URL
+  const validPhotos = profile.photos?.filter(p => p.url && p.url.trim() !== "") || [];
+
+  if (validPhotos.length === 0) {
+    // Немає фото → тільки текст
     await ctx.reply(
       `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
         profile.city || "Не вказано"
@@ -181,40 +186,40 @@ async sendProfilePhotos(ctx: MyContext, profile: IUserProfile) {
         profile.looking_for === 1
           ? "👦"
           : profile.looking_for === 2
-            ? "👧"
-            : profile.looking_for === 3
-              ? "👦👧"
-              : "❓"
-      }\n${profile.status ? `Status: ${profile.status} ` : "⛔Status is not set"}`
+          ? "👧"
+          : profile.looking_for === 3
+          ? "👦👧"
+          : "❓"
+      }\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`
     );
     return;
   }
 
-  const mediaGroup: InputMediaPhoto[] = profile.photos.map(
-    (photo, index) => ({
-      type: "photo",
-      media: photo.url,
-      caption:
-        index === 0
-          ? `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
-              profile.city || "Не вказано"
-            }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
-              profile.min_age
-            } - ${profile.max_age}\nLooking for: ${
-              profile.looking_for === 1
-                ? "👦"
-                : profile.looking_for === 2
-                  ? "👧"
-                  : profile.looking_for === 3
-                    ? "👦👧"
-                    : "❓"
-            }\n${profile.status ? `Status: ${profile.status} ` : "⛔Status is not set"}`
-          : undefined,
-    })
-  );
+  // Є валідні фото → відправляємо mediaGroup
+  const mediaGroup: InputMediaPhoto[] = validPhotos.map((photo, index) => ({
+    type: "photo",
+    media: photo.url!,
+    caption:
+      index === 0
+        ? `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
+            profile.city || "Не вказано"
+          }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
+            profile.min_age
+          } - ${profile.max_age}\nLooking for: ${
+            profile.looking_for === 1
+              ? "👦"
+              : profile.looking_for === 2
+              ? "👧"
+              : profile.looking_for === 3
+              ? "👦👧"
+              : "❓"
+          }\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`
+        : undefined,
+  }));
 
   await ctx.replyWithMediaGroup(mediaGroup);
 }
+
 
   async updateStatus(userId: number, status: string) {
     try {
@@ -263,7 +268,6 @@ async sendProfilePhotosPreRegisterShow(ctx: MyContext) {
     return ctx.scene.reenter();
   }
 
-  // Формуємо текст профілю один раз
   const profileText = `👤 ${data.name || ctx.from?.first_name || "No Name"} (${data.age || "Age"})\n📍 ${
     data.city || "Not specified"
   }\n📝 ${data.description || "No description"}\n__________________\nLooking age: ${
@@ -278,21 +282,25 @@ async sendProfilePhotosPreRegisterShow(ctx: MyContext) {
           : "❓"
   }`;
 
-  // Якщо немає фото, просто показуємо текст
-  if (!data.photos || data.photos.length === 0) {
+  const validPhotos = Array.isArray(data.photos)
+    ? data.photos.filter(p => p.url && p.url.trim() !== "")
+    : [];
+
+  if (validPhotos.length === 0) {
     await ctx.reply(profileText);
     return;
   }
 
-  // Якщо є фото, формуємо медіа-групу
-  const mediaGroup: InputMediaPhoto[] = data.photos.map((url, index) => ({
+  const mediaGroup: InputMediaPhoto[] = validPhotos.map((p, index) => ({
     type: "photo",
-    media: url,
+    media: p.url,
     caption: index === 0 ? profileText : undefined,
   }));
 
   await ctx.replyWithMediaGroup(mediaGroup);
 }
+
+
 
 }
 

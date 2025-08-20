@@ -15,6 +15,14 @@ import { sendProgressMessage } from "../helpers/progress-indicator";
 import { BotScenes } from "./types";
 import { uploadPhotoToCloudinary } from "../lib/cloudinary";
 import { tgProfileService } from "../services/profile.service";
+import { uploadPhotoToS3 } from "../../utils/amazon-s3";
+import { redis } from "../../utils/redis";
+interface GeocodeResult {
+  city: string | null;
+  latitude: number;
+  longitude: number;
+  raw: any;
+}
 
 const getFileLink = async (ctx: any, fileId: string) => {
   try {
@@ -27,24 +35,55 @@ const getFileLink = async (ctx: any, fileId: string) => {
   }
 };
 
-const geocodeByCityName = async (city: string) => {
+const geocodeByCityName = async (
+  cityName: string,
+  lang: string
+): Promise<GeocodeResult | string> => {
   try {
     const response = await axios.get(
-      "https://maps.googleapis.com/maps/api/geocode/json",
-      { params: { address: city, key: process.env.GOOGLE_API_KEY } }
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(cityName)}&key=${process.env.GOOGLE_API_KEY}&language=${lang}`
     );
-    if (response.status === 200 && response.data.results.length > 0) {
-      return response.data.results[0];
-    }
-    return "Incorect city";
+
+    const data = response.data;
+
+    if (!data.results || !data.results[0]) return "Incorrect city";
+
+    const components = data.results[0].address_components;
+
+    // шукаємо населений пункт
+    const cityComponent =
+      components.find((c: { types: string[] }) =>
+        c.types.includes("locality")
+      ) || // місто
+      components.find((c: { types: string[] }) =>
+        c.types.includes("administrative_area_level_3")
+      ) || // смт/село
+      components.find((c: { types: string[] }) =>
+        c.types.includes("administrative_area_level_2")
+      ) || // fallback
+      components.find((c: { types: string[] }) =>
+        c.types.includes("postal_town")
+      ); // UK, інші країни
+
+    const city = cityComponent ? cityComponent.long_name : null;
+
+    const location = data.results[0].geometry.location;
+
+    return {
+      city,
+      latitude: location.lat,
+      longitude: location.lng,
+      raw: data.results[0],
+    };
   } catch (error) {
     console.error(error);
     return "Помилка при виконанні запиту.";
   }
 };
-async function geocodeByCoords(lat: number, lng: number) {
+
+async function geocodeByCoords(lat: number, lng: number, lang: string) {
   const res = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}`
+    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}&language=${lang}`
   );
   const data = await res.json();
 
@@ -129,47 +168,6 @@ const registerScene = new Scenes.WizardScene<MyContext>(
     }
   },
 
-  // Крок 4: обробка статі
-  // async (ctx) => {
-  //   if (ctx.message && "text" in ctx.message) {
-  //     const sex = getSexFromText(ctx.message.text, ctx.lang || "en");
-  //     if (sex) {
-  //       ctx.scene.session.registrationData.sex = Number(sex);
-  //       await ctx.reply(t(ctx.lang, "your_city"), {
-  //         reply_markup: { remove_keyboard: true },
-  //       });
-  //       return ctx.wizard.next();
-  //     } else {
-  //       await ctx.reply(t(ctx.lang, "unknown_answer"));
-  //     }
-  //   }
-  // },
-
-  // Крок 5: обробка міста
-  // async (ctx) => {
-  //   if (ctx.message && "text" in ctx.message) {
-  //     const city = ctx.message.text;
-  //     const geocoded = await geocodeByCityName(city);
-  //     if (
-  //       geocoded === "Incorect city"
-  //     ) {
-  //       await ctx.reply(t(ctx.lang, "incorect_city"));
-  //       return;
-  //     }
-  //     ctx.scene.session.registrationData.city =
-  //       geocoded.address_components[0].long_name;
-  //     ctx.scene.session.registrationData.latitude =
-  //       geocoded.geometry.location.lat;
-  //     ctx.scene.session.registrationData.longitude =
-  //       geocoded.geometry.location.lng;
-
-  //     await ctx.reply(`📍 ${ctx.scene.session.registrationData.city}`);
-  //     await ctx.reply(t(ctx.lang, "looking_for"), {
-  //       reply_markup: getChooseMaleKeyboard(ctx),
-  //     });
-  //     return ctx.wizard.next();
-  //   }
-  // },
   async (ctx) => {
     if (ctx.message && "text" in ctx.message) {
       const sex = getSexFromText(ctx.message.text, ctx.lang || "en");
@@ -201,7 +199,7 @@ const registerScene = new Scenes.WizardScene<MyContext>(
     // Якщо користувач поділився геолокацією
     if (ctx.message && "location" in ctx.message) {
       const { latitude, longitude } = ctx.message.location;
-      const geocoded = await geocodeByCoords(latitude, longitude); // функція для геокодування координат
+      const geocoded = await geocodeByCoords(latitude, longitude, ctx.lang); // функція для геокодування координат
 
       if (!geocoded) {
         await ctx.reply(t(ctx.lang, "incorect_city"));
@@ -225,19 +223,20 @@ const registerScene = new Scenes.WizardScene<MyContext>(
     // Якщо користувач ввів місто текстом
     if (ctx.message && "text" in ctx.message) {
       const city = ctx.message.text;
-      const geocoded = await geocodeByCityName(city);
-
-      if (!geocoded || geocoded === "Incorect city") {
+      const geocoded = await geocodeByCityName(city, ctx.lang);
+      console.log(geocoded, "GEOCODER");
+      if (typeof geocoded === "string") {
+        await ctx.reply(t(ctx.lang, "incorect_city"));
+        return;
+      }
+      if (!geocoded.city || !geocoded.latitude || !geocoded.longitude) {
         await ctx.reply(t(ctx.lang, "incorect_city"));
         return;
       }
 
-      ctx.scene.session.registrationData.city =
-        geocoded.address_components[0].long_name;
-      ctx.scene.session.registrationData.latitude =
-        geocoded.geometry.location.lat;
-      ctx.scene.session.registrationData.longitude =
-        geocoded.geometry.location.lng;
+      ctx.scene.session.registrationData.city = geocoded.city;
+      ctx.scene.session.registrationData.latitude = geocoded.latitude;
+      ctx.scene.session.registrationData.longitude = geocoded.longitude;
 
       await ctx.reply(`📍 ${ctx.scene.session.registrationData.city}`, {
         reply_markup: { remove_keyboard: true },
@@ -340,10 +339,11 @@ const registerScene = new Scenes.WizardScene<MyContext>(
       const fileLink = await getFileLink(ctx, fileId);
       if (!fileLink) return await ctx.reply(t(ctx.lang, "photo_upload_error"));
 
-      const uploadedUrl = await uploadPhotoToCloudinary(
-        fileLink,
-        ctx.message.from.id
-      );
+      // const uploadedUrl = await uploadPhotoToCloudinary(
+      //   fileLink,
+      //   ctx.message.from.id
+      // );
+      const uploadedUrl = await uploadPhotoToS3(fileLink, ctx.message.from.id);
       if (!uploadedUrl)
         return await ctx.reply(t(ctx.lang, "photo_upload_error"));
 
@@ -390,9 +390,9 @@ const registerScene = new Scenes.WizardScene<MyContext>(
       }
 
       if (text === t(ctx.lang, "no_word").toLowerCase()) {
-      // тут додати показ анкети
+        // тут додати показ анкети
 
-      await tgProfileService.sendProfilePhotosPreRegisterShow(ctx)
+        await tgProfileService.sendProfilePhotosPreRegisterShow(ctx);
         await ctx.reply(t(ctx.lang, "final_step"), {
           reply_markup: getAfterRegisterKeyboard(ctx),
         });
@@ -407,7 +407,6 @@ const registerScene = new Scenes.WizardScene<MyContext>(
   async (ctx) => {
     if (ctx.message && "text" in ctx.message) {
       const text = ctx.message.text;
-    
 
       if (text === t(ctx.lang, "keyboard_go_to_dating")) {
         // Якщо користувач вибирає перейти до знайомств
@@ -432,7 +431,7 @@ const registerScene = new Scenes.WizardScene<MyContext>(
               lookingFor: data.lookingFor ?? 0,
               minAge: data.minAge ?? 0,
               maxAge: data.maxAge ?? 0,
-              description: data.description ?? "", 
+              description: data.description ?? "",
               photos: Array.isArray(data.photos)
                 ? data.photos.map((p) => p.url)
                 : [],
@@ -446,7 +445,8 @@ const registerScene = new Scenes.WizardScene<MyContext>(
             await ctx.reply(t(ctx.lang, "welcome_new_profile"), {
               reply_markup: getMainKeyboard(ctx),
             });
-
+            const cacheKey = `profile:${ctx.message?.from.id!}`;
+            const cached = await redis.del(cacheKey);
             const createdProfileUserId = Number(newUserProfile.user_id);
             const profileToShow =
               await tgProfileService.getProfileByUserId(createdProfileUserId);

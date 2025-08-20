@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
-import { Scenes, session, Telegraf } from "telegraf";
+import { Scenes,  Telegraf } from "telegraf";
 import { MyContext } from "./types/bot-context"; // Your custom context type
 import registerScene from "./scenes/register-profile.scene";
 // import './lib/crone/notify'
@@ -36,14 +36,26 @@ import { InputMediaPhoto } from "telegraf/typings/core/types/typegram";
 import { sendToAllUsers } from "./lib/queue";
 import setProfileStatusScene from "./scenes/profile-status.scene";
 import { startAllCronJobs } from "./cron-jobes";
+import { createPaymentWithNowpaymentsIo } from "./payments/nowpayments.io";
+
+import RedisSession  from 'telegraf-session-redis'
+
 
 // Create the bot instance with MyContext as the generic type
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN!);
 const store = Redis({
   url: "redis://127.0.0.1:6379",
 });
+
+
+const session = new RedisSession({
+  store: {
+    host: process.env.TELEGRAM_SESSION_HOST || '127.0.0.1',
+    port: process.env.TELEGRAM_SESSION_PORT || 6379
+  }
+})
 // Initialize the session middleware with the correct type
-bot.use(session());
+bot.use(session);
 
 // Initialize the scene stage
 const stage = new Scenes.Stage<MyContext>([
@@ -141,7 +153,18 @@ bot.hears("/web", async (ctx) => {
     },
   });
 });
+bot.command("pay", async (ctx) => {
+  const payment = await createPaymentWithNowpaymentsIo(2, "USD", ctx.message.from.id);
+  if (!payment) return ctx.reply("Помилка створення платежу.");
+console.log(payment,'PAMENT');
 
+await ctx.replyWithHTML(
+  `💰 Оплатіть преміум:<a href="${payment.invoice_url}">Оплатити</a>`,
+  { parse_mode: "HTML" }
+);
+
+
+});
 bot.on("text", async (ctx) => {
   if (!("text" in ctx.message)) return; // перевіряємо, що це текстове повідомлення
   const text = ctx.message.text;
