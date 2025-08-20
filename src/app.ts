@@ -99,11 +99,10 @@ registerSocketHandlers(io);
 
 // bot.launch(); // Launch the bot
 
-
-
-app.use(bot.webhookCallback("/webhook"));
-bot.telegram.setWebhook(`${process.env.SERVER_HOST!}/webhook`);
-
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
+  app.use(bot.webhookCallback("/webhook"));
+  console.log(process.env.SERVER_HOST!);
+  
+  await bot.telegram.setWebhook(`${process.env.SERVER_HOST!}/webhook`);
 });
