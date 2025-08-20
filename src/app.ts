@@ -102,7 +102,7 @@ registerSocketHandlers(io);
 
 
 app.use(bot.webhookCallback("/webhook"));
-bot.telegram.setWebhook(`${process.env.SERVER_HOST}/webhook`);
+bot.telegram.setWebhook(`${process.env.SERVER_HOST!}/webhook`);
 
 httpServer.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
