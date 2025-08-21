@@ -44,7 +44,7 @@ const hideProfileScene = new Scenes.WizardScene<MyContext>(
     // // 1️⃣ Перевіряємо Redis
     const cached = await redis.del(cacheKey);
     // Підтвердження, що запит надіслано
-    await ctx.reply(t(ctx.lang, "main_menu"), {
+    await ctx.reply(t(ctx.lang, "main_menu_profile_hidden"), {
       reply_markup: getMainKeyboardWhenIsHidden(ctx),
     });
 
@@ -58,7 +58,8 @@ hideProfileScene.use(async (ctx: MyContext, next) => {
     const text = ctx.message.text;
     if (
       text.startsWith("/profile") ||
-      text.includes(t(ctx.lang, "back_to_menu"))
+      text.includes(t(ctx.lang, "back_to_menu")) ||
+      text.startsWith('/start') 
     ) {
       const cacheKey = `profile:${ctx.message?.from.id!}`;
 

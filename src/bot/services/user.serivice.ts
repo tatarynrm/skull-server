@@ -6,7 +6,7 @@ import { MyContext } from "../types/bot-context";
 
 dotenv.config();
 
-export class TelegramUserService {
+export class UserService {
   public async saveTelegramUserIfNotExist(user: ITelegramUser) {
     const result = await pool.query(
       `INSERT INTO tg_user (tg_id, first_name, username,lang)
@@ -18,7 +18,7 @@ export class TelegramUserService {
     return result.rows[0] || null;
   }
   public async getTelegramUser(userId: number) {
-    const cacheKey = `tg_user:${userId}`;
+    // const cacheKey = `tg_user:${userId}`;
 
     // // 1️⃣ Перевіряємо Redis
     // const cached = await redis.get(cacheKey);
@@ -32,15 +32,13 @@ export class TelegramUserService {
     ]);
     const user = result.rows[0] || null;
 
-    // 3️⃣ Зберігаємо в кеш Redis на 1 хвилину
-    // if (user) {
-    //   await redis.set(cacheKey, JSON.stringify(user), "EX", 60 * 1);
-    // }
 
     return user;
   }
 
-  async getOrCreateUser(tgId: number, ctx: MyContext) {
+  async getOrCreateUser(tgId: number, ctx: MyContext, refrerred_by?: number | null) {
+    console.log(refrerred_by,'refrerred_by');
+    
     const userResult = await pool.query(
       `SELECT * FROM tg_user WHERE tg_id = $1`,
       [tgId]
@@ -50,12 +48,13 @@ export class TelegramUserService {
     if (!user) {
       const defaultLang = "uk";
       await pool.query(
-        `INSERT INTO tg_user (tg_id, first_name, username, lang) VALUES ($1, $2, $3, $4)`,
+        `INSERT INTO tg_user (tg_id, first_name, username, lang,refrerred_by) VALUES ($1, $2, $3, $4,$5)`,
         [
           tgId,
           ctx.message?.from.first_name || "",
           ctx.message?.from.username || "",
           defaultLang,
+          refrerred_by ?? null,
         ]
       );
       return { lang: defaultLang, isNew: true };
@@ -63,6 +62,15 @@ export class TelegramUserService {
 
     return { lang: user.lang || "uk", isNew: false };
   }
+  async saveReferedByIdIfExist(tgId: number, refered_by?: number) {
+    const userResult = await pool.query(
+      `SELECT * FROM tg_user WHERE tg_id = $1`,
+      [tgId]
+    );
+    let user = userResult.rows[0];
+
+    console.log(user, "USER");
+  }
 }
 
-export const telegramUserService = new TelegramUserService();
+export const tgUserService = new UserService();

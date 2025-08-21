@@ -6,7 +6,8 @@ import { redis } from "../../utils/redis";
 import { deletePhotoFromCloudinary } from "../lib/cloudinary";
 import { MyContext } from "../types/bot-context";
 import { t } from "../lib/i18n";
-import { deletePhotoFromS3 } from "../../utils/amazon-s3";
+import { deletePhotoFromS3 } from "../lib/amazon-s3";
+
 export interface UserProfileData {
   user_id: number;
   name: string;
@@ -20,6 +21,8 @@ export interface UserProfileData {
   maxAge: number;
   photos: string[];
   description: string;
+  referal_code?: string;
+  pre_photos?: string[];
 }
 export interface ProfilePhoto {
   url: string;
@@ -43,6 +46,7 @@ export interface IUserProfile {
   description: string;
   photos: ProfilePhoto[];
   status?: string;
+  referal_code: string;
 }
 export class ProfileService {
   // private readonly CACHE_TTL = 60 * 1; // 5 хвилин
@@ -100,8 +104,8 @@ export class ProfileService {
       const profileResult = await client.query(
         `
       INSERT INTO tg_user_profile 
-        (user_id, name, age, sex, city, latitude, longitude, looking_for, min_age, max_age, description)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        (user_id, name, age, sex, city, latitude, longitude, looking_for, min_age, max_age, description,referal_code)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       ON CONFLICT (user_id) DO UPDATE SET
         name = EXCLUDED.name,
         age = EXCLUDED.age,
@@ -112,7 +116,8 @@ export class ProfileService {
         looking_for = EXCLUDED.looking_for,
         min_age = EXCLUDED.min_age,
         max_age = EXCLUDED.max_age,
-        description = EXCLUDED.description
+        description = EXCLUDED.description,
+        referal_code = EXCLUDED.referal_code
       RETURNING *;
       `,
         [
@@ -127,6 +132,7 @@ export class ProfileService {
           data.minAge,
           data.maxAge,
           data.description,
+          data.referal_code,
         ]
       );
 
@@ -141,7 +147,7 @@ export class ProfileService {
       for (const row of oldPhotos.rows) {
         try {
           // await deletePhotoFromCloudinary(row.url);
-         await deletePhotoFromS3(row.url)
+          await deletePhotoFromS3(row.url);
         } catch (err) {
           console.error("Error deleting photo from Cloudinary:", err);
         }
@@ -171,55 +177,55 @@ export class ProfileService {
     }
   }
 
-async sendProfilePhotos(ctx: MyContext, profile: IUserProfile) {
-  // Фільтруємо тільки валідні URL
-  const validPhotos = profile.photos?.filter(p => p.url && p.url.trim() !== "") || [];
+  async sendProfilePhotos(ctx: MyContext, profile: IUserProfile) {
+    // Фільтруємо тільки валідні URL
+    const validPhotos =
+      profile.photos?.filter((p) => p.url && p.url.trim() !== "") || [];
 
-  if (validPhotos.length === 0) {
-    // Немає фото → тільки текст
-    await ctx.reply(
-      `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
-        profile.city || "Не вказано"
-      }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
-        profile.min_age
-      } - ${profile.max_age}\nLooking for: ${
-        profile.looking_for === 1
-          ? "👦"
-          : profile.looking_for === 2
-          ? "👧"
-          : profile.looking_for === 3
-          ? "👦👧"
-          : "❓"
-      }\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`
-    );
-    return;
-  }
-
-  // Є валідні фото → відправляємо mediaGroup
-  const mediaGroup: InputMediaPhoto[] = validPhotos.map((photo, index) => ({
-    type: "photo",
-    media: photo.url!,
-    caption:
-      index === 0
-        ? `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
-            profile.city || "Не вказано"
-          }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
-            profile.min_age
-          } - ${profile.max_age}\nLooking for: ${
-            profile.looking_for === 1
-              ? "👦"
-              : profile.looking_for === 2
+    if (validPhotos.length === 0) {
+      // Немає фото → тільки текст
+      await ctx.reply(
+        `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
+          profile.city || "Не вказано"
+        }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
+          profile.min_age
+        } - ${profile.max_age}\nLooking for: ${
+          profile.looking_for === 1
+            ? "👦"
+            : profile.looking_for === 2
               ? "👧"
               : profile.looking_for === 3
-              ? "👦👧"
-              : "❓"
-          }\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`
-        : undefined,
-  }));
+                ? "👦👧"
+                : "❓"
+        }\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`
+      );
+      return;
+    }
 
-  await ctx.replyWithMediaGroup(mediaGroup);
-}
+    // Є валідні фото → відправляємо mediaGroup
+    const mediaGroup: InputMediaPhoto[] = validPhotos.map((photo, index) => ({
+      type: "photo",
+      media: photo.url!,
+      caption:
+        index === 0
+          ? `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${
+              profile.city || "Не вказано"
+            }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
+              profile.min_age
+            } - ${profile.max_age}\nLooking for: ${
+              profile.looking_for === 1
+                ? "👦"
+                : profile.looking_for === 2
+                  ? "👧"
+                  : profile.looking_for === 3
+                    ? "👦👧"
+                    : "❓"
+            }\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`
+          : undefined,
+    }));
 
+    await ctx.replyWithMediaGroup(mediaGroup);
+  }
 
   async updateStatus(userId: number, status: string) {
     try {
@@ -257,51 +263,141 @@ async sendProfilePhotos(ctx: MyContext, profile: IUserProfile) {
     return true;
   }
 
-async sendProfilePhotosPreRegisterShow(ctx: MyContext) {
-  const data = ctx.scene.session.registrationData;
+  async sendProfilePhotosPreRegisterShow(ctx: MyContext) {
+    const data = ctx.scene.session.registrationData;
 
-  if (!data) {
-    await ctx.reply("Registration data is missing. Please start again.");
-    await ctx.reply(t(ctx.lang, "whats_your_name"), {
-      reply_markup: { remove_keyboard: true },
-    });
-    return ctx.scene.reenter();
+    if (!data) {
+      await ctx.reply("Registration data is missing. Please start again.");
+      await ctx.reply(t(ctx.lang, "whats_your_name"), {
+        reply_markup: { remove_keyboard: true },
+      });
+      return ctx.scene.reenter();
+    }
+
+    const profileText = `👤 ${data.name || ctx.from?.first_name || "No Name"} (${data.age || "Age"})\n📍 ${
+      data.city || "Not specified"
+    }\n📝 ${data.description || "No description"}\n__________________\nLooking age: ${
+      data.minAge || 0
+    } - ${data.maxAge || 0}\nLooking for: ${
+      data.lookingFor === 1
+        ? "👦"
+        : data.lookingFor === 2
+          ? "👧"
+          : data.lookingFor === 3
+            ? "👦👧"
+            : "❓"
+    }`;
+
+    const validPhotos = Array.isArray(data.photos)
+      ? data.photos.filter((p) => p.url && p.url.trim() !== "")
+      : [];
+
+    if (validPhotos.length === 0) {
+      await ctx.reply(profileText);
+      return;
+    }
+
+    const mediaGroup: InputMediaPhoto[] = validPhotos.map((p, index) => ({
+      type: "photo",
+      media: p.url,
+      caption: index === 0 ? profileText : undefined,
+    }));
+
+    await ctx.replyWithMediaGroup(mediaGroup);
   }
 
-  const profileText = `👤 ${data.name || ctx.from?.first_name || "No Name"} (${data.age || "Age"})\n📍 ${
-    data.city || "Not specified"
-  }\n📝 ${data.description || "No description"}\n__________________\nLooking age: ${
-    data.minAge || 0
-  } - ${data.maxAge || 0}\nLooking for: ${
-    data.lookingFor === 1
-      ? "👦"
-      : data.lookingFor === 2
-        ? "👧"
-        : data.lookingFor === 3
-          ? "👦👧"
-          : "❓"
-  }`;
-
-  const validPhotos = Array.isArray(data.photos)
-    ? data.photos.filter(p => p.url && p.url.trim() !== "")
-    : [];
-
-  if (validPhotos.length === 0) {
-    await ctx.reply(profileText);
-    return;
+  async updateDescription(userId: number, description: string) {
+    try {
+      const result = await pool.query(
+        `UPDATE tg_user_profile 
+         SET description = $1
+         WHERE user_id = $2 RETURNING *`,
+        [description, userId]
+      );
+      if (result.rowCount) {
+        return result.rowCount > 0;
+      } else {
+        return false;
+      }
+    } catch (err) {
+      console.error("updateDescription error:", err);
+      return false;
+    }
   }
 
-  const mediaGroup: InputMediaPhoto[] = validPhotos.map((p, index) => ({
-    type: "photo",
-    media: p.url,
-    caption: index === 0 ? profileText : undefined,
-  }));
+  async getProfilePhotos(userId: number): Promise<{ url: string }[]> {
+    try {
+      const result = await pool.query(
+        `SELECT url FROM tg_profile_photos WHERE user_id = $1`,
+        [userId]
+      );
+      if (!result.rowCount) {
+        return [];
+      }
+      if (result.rowCount > 0) {
+        // Повертаємо масив об’єктів { url: string }
+        return result.rows.map((row) => ({ url: row.url }));
+      } else {
+        return [];
+      }
+    } catch (err) {
+      console.error("getProfilePhotos error:", err);
+      return [];
+    }
+  }
 
-  await ctx.replyWithMediaGroup(mediaGroup);
-}
+  async updateUserPhotos(userId: number, photos: string[]) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
+      // Видаляємо старі фото
+      await client.query("DELETE FROM tg_profile_photos WHERE user_id = $1", [
+        userId,
+      ]);
 
+      // Вставляємо нові фото
+      const insertPromises = photos.map((url) =>
+        client.query(
+          "INSERT INTO tg_profile_photos (user_id, url) VALUES ($1, $2)",
+          [userId, url]
+        )
+      );
+      await Promise.all(insertPromises);
 
+      await client.query("COMMIT");
+      return true;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("updateUserPhotos error:", err);
+      return false;
+    } finally {
+      client.release();
+    }
+  }
+  async updateUserAgeRange(
+    userId: number,
+    minAge: number,
+    maxAge: number
+  ): Promise<boolean> {
+    try {
+      const query = `
+        UPDATE tg_user_profile
+        SET min_age = $1,
+            max_age = $2
+        WHERE user_id = $3
+      `;
+      const result = await pool.query(query, [minAge, maxAge, userId]);
+      if (result.rowCount) {
+        return result.rowCount > 0; // повертає true, якщо щось оновлено
+      } else {
+        return false;
+      }
+    } catch (err) {
+      console.error("Error updating user age range:", err);
+      return false;
+    }
+  }
 }
 
 export const tgProfileService = new ProfileService();

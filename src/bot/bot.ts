@@ -1,9 +1,9 @@
 import dotenv from "dotenv";
 dotenv.config();
-import { Scenes,  Telegraf } from "telegraf";
+import { Scenes, Telegraf } from "telegraf";
 import { MyContext } from "./types/bot-context"; // Your custom context type
 import registerScene from "./scenes/register-profile.scene";
-// import './lib/crone/notify'
+
 import {
   getBeforeRegisterKeyboard,
   getMainKeyboard,
@@ -13,32 +13,30 @@ import {
 import { Redis } from "@telegraf/session/redis";
 import { t } from "./lib/i18n";
 
-import { pool } from "../db/pool";
-
 import changeLanguageScene from "./scenes/change-language.scene";
 import { BotScenes } from "./scenes/types";
 import { getHelpKeyboard } from "./keyboards/help.keyboard";
 import helpScene from "./scenes/help.scene";
-import {
-  getPremiumKeyboard,
-  getPremiumKeyboardBottom,
-} from "./keyboards/premium.keyboard";
+import { getPremiumKeyboardBottom } from "./keyboards/premium.keyboard";
 import { getLoteryKeyboard } from "./keyboards/lotery.keyboard";
 import hideProfileScene from "./scenes/hide-profile.scene";
-
 import activateProfileScene from "./scenes/activate-profile.scene.";
 import findPartnerScene from "./scenes/find-partner.scene";
 import sendMessageScene from "./scenes/send-message.scene";
-import { tarif_stars_plans } from "./constants/tarif-starts-plans.constant";
-import { IUserProfile, tgProfileService } from "./services/profile.service";
-import { telegramUserService } from "./services/user.serivice";
-import { InputMediaPhoto } from "telegraf/typings/core/types/typegram";
-import { sendToAllUsers } from "./lib/queue";
+import { tgProfileService } from "./services/profile.service";
+import { tgUserService } from "./services/user.serivice";
 import setProfileStatusScene from "./scenes/profile-status.scene";
 import { startAllCronJobs } from "./cron-jobes";
 import { createPaymentWithNowpaymentsIo } from "./payments/nowpayments.io";
 
-import RedisSession  from 'telegraf-session-redis'
+import RedisSession from "telegraf-session-redis";
+import bonusScene from "./scenes/bonus.scene";
+import { LikesSchedule } from "./cron-jobes/likes.cron";
+import myLikesScene from "./scenes/my-likes.scene";
+import setEditProfileDescription from "./scenes/edit-profile-description";
+import changePhotoScene from "./scenes/change-photo.scene";
+import editAgeRangeScene from "./scenes/age-change.scene";
+import { getRandomGif } from "./lib/giphy(random-gif)/giphy";
 
 
 // Create the bot instance with MyContext as the generic type
@@ -47,13 +45,12 @@ const store = Redis({
   url: "redis://127.0.0.1:6379",
 });
 
-
 const session = new RedisSession({
   store: {
-    host: process.env.TELEGRAM_SESSION_HOST || '127.0.0.1',
-    port: process.env.TELEGRAM_SESSION_PORT || 6379
-  }
-})
+    host: process.env.TELEGRAM_SESSION_HOST || "127.0.0.1",
+    port: process.env.TELEGRAM_SESSION_PORT || 6379,
+  },
+});
 // Initialize the session middleware with the correct type
 bot.use(session);
 
@@ -67,11 +64,16 @@ const stage = new Scenes.Stage<MyContext>([
   findPartnerScene,
   sendMessageScene,
   setProfileStatusScene,
+  bonusScene,
+  myLikesScene,
+  setEditProfileDescription,
+  changePhotoScene,
+  editAgeRangeScene
 ]);
 bot.use(async (ctx, next) => {
   const userId = ctx.message?.from.id!;
 
-  const user = await telegramUserService.getTelegramUser(userId);
+  const user = await tgUserService.getTelegramUser(userId);
 
   ctx.lang = user?.lang ? user?.lang : "uk";
 
@@ -80,8 +82,25 @@ bot.use(async (ctx, next) => {
 // Use the scene middleware
 bot.use(stage.middleware());
 bot.start(async (ctx) => {
+  const payload = ctx.payload; // "ref_5248905716"
+  let referredBy: number | null = null;
+
+  if (payload && payload.startsWith("ref_")) {
+    const rawId = payload.replace("ref_", ""); // "5248905716"
+
+    // перевірка чи це число
+    if (/^\d+$/.test(rawId)) {
+      referredBy = Number(rawId);
+      console.log(referredBy, "REF BY");
+    }
+  }
+
   const tgId = ctx.message.from.id;
-  const { lang, isNew } = await telegramUserService.getOrCreateUser(tgId, ctx);
+  const { lang, isNew } = await tgUserService.getOrCreateUser(
+    tgId,
+    ctx,
+    referredBy
+  );
   ctx.lang = lang;
 
   if (isNew) {
@@ -112,8 +131,9 @@ bot.start(async (ctx) => {
 });
 
 bot.command("profile", async (ctx) => {
+
   const tgId = ctx.message.from.id;
-  const { lang } = await telegramUserService.getOrCreateUser(tgId, ctx);
+  const { lang } = await tgUserService.getOrCreateUser(tgId, ctx);
   ctx.lang = lang;
 
   const profile = await tgProfileService.getProfileByUserId(tgId);
@@ -125,7 +145,9 @@ bot.command("profile", async (ctx) => {
   }
 
   if (profile.is_hidden) {
-    return await ctx.scene.enter(BotScenes.ACTIVATE_PROFILE);
+ 
+    await ctx.scene.enter(BotScenes.ACTIVATE_PROFILE);
+    return;
   }
 
   await tgProfileService.sendProfilePhotos(ctx, profile);
@@ -153,32 +175,51 @@ bot.hears("/web", async (ctx) => {
     },
   });
 });
+
+
+
 bot.command("pay", async (ctx) => {
-  const payment = await createPaymentWithNowpaymentsIo(2, "USD", ctx.message.from.id);
+  const payment = await createPaymentWithNowpaymentsIo(
+    2,
+    "USD",
+    ctx.message.from.id
+  );
   if (!payment) return ctx.reply("Помилка створення платежу.");
-console.log(payment,'PAMENT');
+  console.log(payment, "PAMENT");
 
-await ctx.replyWithHTML(
-  `💰 Оплатіть преміум:<a href="${payment.invoice_url}">Оплатити</a>`,
-  { parse_mode: "HTML" }
-);
-
-
+  await ctx.replyWithHTML(
+    `💰 Оплатіть преміум:<a href="${payment.invoice_url}">Оплатити</a>`,
+    { parse_mode: "HTML" }
+  );
 });
 bot.on("text", async (ctx) => {
   if (!("text" in ctx.message)) return; // перевіряємо, що це текстове повідомлення
   const text = ctx.message.text;
+  console.log(text, "TEXT");
   if (text === t(ctx.lang, "settings")) {
-    console.log("OK SETTINGS ----");
-
     await ctx.reply(t(ctx.lang, "settings_menu"), {
       reply_markup: getSettingsKeyboard(ctx),
     });
   }
-
+  if (text === t(ctx.lang, "bonus")) {
+    await ctx.scene.enter(BotScenes.BONUS_SCENE);
+  }
+  if (text === t(ctx.lang, "my_likes")) {
+    await ctx.scene.enter(BotScenes.MY_LIKES_SCENE);
+  }
   if (text === t(ctx.lang, "create_profile")) {
     await ctx.scene.enter(BotScenes.REGISTER_SCENE);
   }
+  if (text === t(ctx.lang, "keyboard_edit_profile_age")) {
+    await ctx.scene.enter(BotScenes.EDIT_AGE_RANGE_SCENE);
+  }
+  if (text === t(ctx.lang, "keyboard_edit_profile_description")) {
+    await ctx.scene.enter(BotScenes.EDIT_PROFILE_DESCRIPTION);
+  }
+  if (text === t(ctx.lang, "keyboard_edit_profile_picture")) {
+    await ctx.scene.enter(BotScenes.CHANGE_PHOTO_SCENE);
+  }
+
   if (text === t(ctx.lang, "set_profile_status")) {
     await ctx.scene.enter(BotScenes.PROFILE_STATUS_SAVE);
   }
@@ -191,11 +232,7 @@ bot.on("text", async (ctx) => {
   if (text === t(ctx.lang, "edit_profile")) {
     await ctx.scene.enter(BotScenes.REGISTER_SCENE);
   }
-  if (text === t(ctx.lang, "premium_lotery")) {
-    await ctx.reply(t(ctx.lang, "premium_lotery_enter"), {
-      reply_markup: getLoteryKeyboard(ctx),
-    });
-  }
+
   if (text === t(ctx.lang, "profile")) {
     await ctx.reply(t(ctx.lang, "profile"), {
       reply_markup: getProfileKeyboard(ctx),
@@ -228,9 +265,7 @@ bot.on("text", async (ctx) => {
     });
   }
   if (text === t(ctx.lang, "premium")) {
-    await ctx.reply(t(ctx.lang, "premium_description_text"), {
-      reply_markup: getPremiumKeyboard(ctx),
-    });
+    await ctx.reply(t(ctx.lang, "premium_description_text"));
     await ctx.reply(t(ctx.lang, t(ctx.lang, "tarif_plans")), {
       reply_markup: getPremiumKeyboardBottom(ctx),
     });
@@ -293,5 +328,7 @@ bot.on("text", async (ctx) => {
 
 // const message = `<b>Привіт, користувачу!</b>\nЦе <i>тестове повідомлення</i> з <a href="https://example.com">посиланням</a>.`;
 // sendToAllUsers(message);
-startAllCronJobs()
+// startAllCronJobs();
+
+LikesSchedule()
 export default bot;

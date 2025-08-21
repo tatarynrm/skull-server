@@ -1,7 +1,7 @@
 import { Scenes } from "telegraf";
 import { MyContext } from "../types/bot-context";
 import { t } from "../lib/i18n";
-import { getMainKeyboard } from "../keyboards";
+import { getBeforeRegisterKeyboard, getMainKeyboard } from "../keyboards";
 import { BotScenes } from "./types";
 import { profileService } from "../../services/profile.service";
 import { tgProfileService } from "../services/profile.service";
@@ -49,8 +49,6 @@ const setProfileStatusScene = new Scenes.WizardScene<MyContext>(
     const userId = ctx.message?.from.id;
     if (ctx.message && "text" in ctx.message) {
       const text = ctx.message.text;
-
-
 
       // Якщо користувач натиснув "Назад у меню"
       if (text === t(ctx.lang, "back_to_menu")) {
@@ -106,5 +104,21 @@ const setProfileStatusScene = new Scenes.WizardScene<MyContext>(
     }
   }
 );
-
+setProfileStatusScene.use(async (ctx: MyContext, next) => {
+  if (ctx.message && "text" in ctx.message) {
+    const text = ctx.message.text;
+    if (
+      text.startsWith("/profile") ||
+      text.startsWith("/help") ||
+      text.startsWith("/start")
+    ) {
+      const msgToDelete = await ctx.reply(t(ctx.lang, "main_menu"), {
+        reply_markup: getMainKeyboard(ctx),
+      });
+      await ctx.scene.leave(); // виходимо зі сцени
+      return; // не виконуємо подальші кроки сцени
+    }
+  }
+  return next(); // продовжуємо звичайну обробку сцени
+});
 export default setProfileStatusScene;

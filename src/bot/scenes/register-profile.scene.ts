@@ -15,16 +15,11 @@ import { sendProgressMessage } from "../helpers/progress-indicator";
 import { BotScenes } from "./types";
 import { uploadPhotoToCloudinary } from "../lib/cloudinary";
 import { tgProfileService } from "../services/profile.service";
-import { uploadPhotoToS3 } from "../../utils/amazon-s3";
-import { redis } from "../../utils/redis";
-interface GeocodeResult {
-  city: string | null;
-  latitude: number;
-  longitude: number;
-  raw: any;
-}
 
-const getFileLink = async (ctx: any, fileId: string) => {
+import { redis } from "../../utils/redis";
+import { cleanupFolder, uploadPhotoToS3 } from "../lib/amazon-s3";
+
+export const getFileLink = async (ctx: any, fileId: string) => {
   try {
     const file = await ctx.telegram.getFile(fileId);
     const filePath = file.file_path;
@@ -35,55 +30,24 @@ const getFileLink = async (ctx: any, fileId: string) => {
   }
 };
 
-const geocodeByCityName = async (
-  cityName: string,
-  lang: string
-): Promise<GeocodeResult | string> => {
+const geocodeByCityName = async (city: string) => {
   try {
     const response = await axios.get(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(cityName)}&key=${process.env.GOOGLE_API_KEY}&language=${lang}`
+      "https://maps.googleapis.com/maps/api/geocode/json",
+      { params: { address: city, key: process.env.GOOGLE_API_KEY } }
     );
-
-    const data = response.data;
-
-    if (!data.results || !data.results[0]) return "Incorrect city";
-
-    const components = data.results[0].address_components;
-
-    // шукаємо населений пункт
-    const cityComponent =
-      components.find((c: { types: string[] }) =>
-        c.types.includes("locality")
-      ) || // місто
-      components.find((c: { types: string[] }) =>
-        c.types.includes("administrative_area_level_3")
-      ) || // смт/село
-      components.find((c: { types: string[] }) =>
-        c.types.includes("administrative_area_level_2")
-      ) || // fallback
-      components.find((c: { types: string[] }) =>
-        c.types.includes("postal_town")
-      ); // UK, інші країни
-
-    const city = cityComponent ? cityComponent.long_name : null;
-
-    const location = data.results[0].geometry.location;
-
-    return {
-      city,
-      latitude: location.lat,
-      longitude: location.lng,
-      raw: data.results[0],
-    };
+    if (response.status === 200 && response.data.results.length > 0) {
+      return response.data.results[0];
+    }
+    return "Incorect city";
   } catch (error) {
     console.error(error);
     return "Помилка при виконанні запиту.";
   }
 };
-
-async function geocodeByCoords(lat: number, lng: number, lang: string) {
+async function geocodeByCoords(lat: number, lng: number) {
   const res = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}&language=${lang}`
+    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}`
   );
   const data = await res.json();
 
@@ -199,7 +163,7 @@ const registerScene = new Scenes.WizardScene<MyContext>(
     // Якщо користувач поділився геолокацією
     if (ctx.message && "location" in ctx.message) {
       const { latitude, longitude } = ctx.message.location;
-      const geocoded = await geocodeByCoords(latitude, longitude, ctx.lang); // функція для геокодування координат
+      const geocoded = await geocodeByCoords(latitude, longitude); // функція для геокодування координат
 
       if (!geocoded) {
         await ctx.reply(t(ctx.lang, "incorect_city"));
@@ -223,20 +187,19 @@ const registerScene = new Scenes.WizardScene<MyContext>(
     // Якщо користувач ввів місто текстом
     if (ctx.message && "text" in ctx.message) {
       const city = ctx.message.text;
-      const geocoded = await geocodeByCityName(city, ctx.lang);
-      console.log(geocoded, "GEOCODER");
-      if (typeof geocoded === "string") {
-        await ctx.reply(t(ctx.lang, "incorect_city"));
-        return;
-      }
-      if (!geocoded.city || !geocoded.latitude || !geocoded.longitude) {
+      const geocoded = await geocodeByCityName(city);
+
+      if (!geocoded || geocoded === "Incorect city") {
         await ctx.reply(t(ctx.lang, "incorect_city"));
         return;
       }
 
-      ctx.scene.session.registrationData.city = geocoded.city;
-      ctx.scene.session.registrationData.latitude = geocoded.latitude;
-      ctx.scene.session.registrationData.longitude = geocoded.longitude;
+      ctx.scene.session.registrationData.city =
+        geocoded.address_components[0].long_name;
+      ctx.scene.session.registrationData.latitude =
+        geocoded.geometry.location.lat;
+      ctx.scene.session.registrationData.longitude =
+        geocoded.geometry.location.lng;
 
       await ctx.reply(`📍 ${ctx.scene.session.registrationData.city}`, {
         reply_markup: { remove_keyboard: true },
@@ -328,83 +291,86 @@ const registerScene = new Scenes.WizardScene<MyContext>(
     }
   },
 
-  // Крок 10: додавання фото
-  // Крок 10: додавання фото
   async (ctx) => {
-    ctx.scene.session.registrationData.photos =
-      ctx.scene.session.registrationData.photos || [];
+    const data = ctx.scene.session.registrationData;
+
+    data.pre_photos = data.pre_photos || [];
+    data.photos = data.photos || [];
 
     if (ctx.message && "photo" in ctx.message) {
-      const fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+      const photo = ctx.message.photo.pop();
+      if (!photo) return ctx.reply("Підтримується лише фото формат!");
+
+      const fileId = photo.file_id;
       const fileLink = await getFileLink(ctx, fileId);
-      if (!fileLink) return await ctx.reply(t(ctx.lang, "photo_upload_error"));
+      if (!fileLink) return ctx.reply(t(ctx.lang, "photo_upload_error"));
 
-      // const uploadedUrl = await uploadPhotoToCloudinary(
-      //   fileLink,
-      //   ctx.message.from.id
-      // );
-      const uploadedUrl = await uploadPhotoToS3(fileLink, ctx.message.from.id);
-      if (!uploadedUrl)
-        return await ctx.reply(t(ctx.lang, "photo_upload_error"));
+      data.pre_photos.push({ file_id: fileId });
+      const count = data.pre_photos.length;
 
-      ctx.scene.session.registrationData.photos.push({ url: uploadedUrl });
-      const photoCount = ctx.scene.session.registrationData.photos.length;
+      const url = await uploadPhotoToS3(fileLink, ctx.message.from.id);
+      if (!url) {
+        return ctx.reply("Виникла помилка при завантаженні фото");
+      }
+      data.photos?.push({ url: url });
 
-      if (photoCount < 3) {
-        await ctx.reply(
-          t(ctx.lang, "want_add_another_photo", { count: photoCount }),
-          {
-            reply_markup: {
-              keyboard: [[t(ctx.lang, "yes_word"), t(ctx.lang, "no_word")]],
-              one_time_keyboard: true,
-              resize_keyboard: true,
-            },
-          }
-        );
-        return ctx.wizard.selectStep(10); // переходимо на крок 11, де вибір “yes/no”
+      if (count < 4) {
+        // 1 або 2 фото — залишаємося на цьому кроці
+        await ctx.reply(t(ctx.lang, `photo_added_count`, { count: count }), {
+          reply_markup: {
+            keyboard: [
+              [
+                { text: t(ctx.lang, "no_word") },
+                { text: t(ctx.lang, "yes_word") },
+              ],
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true,
+          },
+        });
+        return; // **не викликаємо ctx.wizard.next()**
       }
 
-      // 3 фото — йдемо до завершення реєстрації
+      // 3 фото — автоматично переходимо
       await ctx.reply(t(ctx.lang, "photos_uploaded_max"), {
         reply_markup: getAfterRegisterKeyboard(ctx),
       });
-
-      ctx.wizard.selectStep(11); // одразу на крок завершення
-      return;
-    } else {
-      await ctx.reply(t(ctx.lang, "need_photo"));
-      return; // залишаємо користувача в цьому ж кроці
+      return ctx.wizard.next();
     }
-  },
 
-  // Крок 11: вибір “Додати ще фото чи завершити”
-  async (ctx) => {
+    // Якщо користувач натиснув "Готово" (без досягнення 3 фото)
     if (ctx.message && "text" in ctx.message) {
       const text = ctx.message.text.toLowerCase();
-
-      if (text === t(ctx.lang, "yes_word").toLowerCase()) {
-        await ctx.reply(t(ctx.lang, "send_photo_again"), {
-          reply_markup: { remove_keyboard: true },
-        });
-        return ctx.wizard.back(); // повертаємось на крок 10
-      }
-
       if (text === t(ctx.lang, "no_word").toLowerCase()) {
-        // тут додати показ анкети
-
-        await tgProfileService.sendProfilePhotosPreRegisterShow(ctx);
-        await ctx.reply(t(ctx.lang, "final_step"), {
-          reply_markup: getAfterRegisterKeyboard(ctx),
+        // переходимо на наступний крок
+        ctx.reply("Так виглядає ваша анкета", {
+          reply_markup: {
+            keyboard: [
+              [
+                { text: t(ctx.lang, "keyboard_refil_questionnaire") },
+                { text: t(ctx.lang, "keyboard_go_to_dating") },
+              ],
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true,
+          },
         });
-        return ctx.wizard.next(); // переходимо на крок 12
+        await tgProfileService.sendProfilePhotosPreRegisterShow(ctx);
+        return ctx.wizard.next();
       }
-
-      await ctx.reply(t(ctx.lang, "unknown_answer"));
+      if (text === t(ctx.lang, "yes_word").toLowerCase()) {
+        ctx.reply("Давайте ще одне фото");
+        return;
+      }
     }
+
+    // Якщо не фото і не текст — показуємо підказку
+    return ctx.reply(t(ctx.lang, "need_photo"));
   },
 
   // Крок 12: Завершення реєстрації
   async (ctx) => {
+
     if (ctx.message && "text" in ctx.message) {
       const text = ctx.message.text;
 
@@ -433,7 +399,7 @@ const registerScene = new Scenes.WizardScene<MyContext>(
               maxAge: data.maxAge ?? 0,
               description: data.description ?? "",
               photos: Array.isArray(data.photos)
-                ? data.photos.map((p) => p.url)
+                ? data.photos.slice(0,4).map((p) => p.url)
                 : [],
             });
             await sendProgressMessage(
@@ -441,12 +407,25 @@ const registerScene = new Scenes.WizardScene<MyContext>(
               "system_indicator_start_create_profile",
               "system_indicator_end_create_profile"
             );
+
+            // Витягуємо ключі (без https://bucket.s3... )
+            const keys = data.photos!.map((p) => {
+              const urlObj = new URL(p.url);
+              return urlObj.pathname.slice(1); // прибираємо початковий "/"
+            });
+            // Використання:
+            await cleanupFolder(
+              process.env.BUCKET_NAME!,
+              `user-uploads/${ctx.message.from.id}/`, // папка (prefix)
+              keys
+            );
+            const cacheKey = `profile:${ctx.message.from.id}`;
+            await redis.del(cacheKey);
             // Перехід до знайомств
             await ctx.reply(t(ctx.lang, "welcome_new_profile"), {
               reply_markup: getMainKeyboard(ctx),
             });
-            const cacheKey = `profile:${ctx.message?.from.id!}`;
-            const cached = await redis.del(cacheKey);
+
             const createdProfileUserId = Number(newUserProfile.user_id);
             const profileToShow =
               await tgProfileService.getProfileByUserId(createdProfileUserId);
@@ -498,4 +477,5 @@ registerScene.use(async (ctx: MyContext, next) => {
   }
   return next(); // продовжуємо звичайну обробку сцени
 });
+
 export default registerScene;

@@ -38,7 +38,6 @@ router.post("/upload", upload.any(), async (req: Request, res: Response) => {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-
       // Прибираємо флаг приватності
       const base64 = file.buffer.toString("base64");
       const dataURI = `data:${file.mimetype};base64,${base64}`;

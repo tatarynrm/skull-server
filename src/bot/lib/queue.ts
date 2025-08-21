@@ -28,7 +28,7 @@ export async function sendToAllUsers(message: string) {
       [batchSize, offset]
     );
 
-    console.log(`Обробляємо користувачів ${offset} - ${offset + usersRes.rows.length}`);
+
 
     // Створюємо нову чергу для поточного batch-а
     const queue = new PQueue({
@@ -53,7 +53,7 @@ export async function sendToAllUsers(message: string) {
     await queue.onIdle();
   }
 
-  console.log("Розсилка завершена для всіх користувачів!");
+
 }
 
 

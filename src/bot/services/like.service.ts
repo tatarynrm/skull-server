@@ -9,6 +9,10 @@
 
 import { pool } from "../../db/pool";
 import { redis } from "../../utils/redis";
+import bot from "../bot";
+import { getSeeMyLikesKeyboard } from "../keyboards";
+import { t } from "../lib/i18n";
+import { Lang } from "../types/bot-context";
 
 export class LikeService {
   /**
@@ -16,6 +20,9 @@ export class LikeService {
    * @param likerUserId - хто ставить лайк
    * @param likedUserId - кому ставлять лайк
    */
+
+  private interval: NodeJS.Timeout | null = null;
+  private isRunning: boolean = false;
   async addLikeHistoryRecord(likerUserId: number, likedUserId: number) {
     const client = await pool.connect();
 
@@ -50,7 +57,6 @@ export class LikeService {
         `SELECT age, sex FROM tg_user_profile WHERE user_id = $1`,
         [likerUserId]
       );
- 
 
       if (!rows[0]) return;
 
@@ -94,6 +100,128 @@ export class LikeService {
     } finally {
       client.release();
     }
+  }
+
+  private async getUnnotifiedLikes(batchSize: number = 500) {
+    const result = await pool.query(
+      `SELECT a.from_user_id, a.to_user_id,b.lang
+     FROM tg_user_likes  a
+     LEFT JOIN tg_user b on a.to_user_id = b.tg_id
+     WHERE a.status = 'like' AND notified = false
+     LIMIT $1`,
+      [batchSize]
+    );
+    return result.rows;
+  }
+
+  // Позначаємо записи як notified
+  private async markLikesAsNotified(
+    likes: { from_user_id: number; to_user_id: number }[]
+  ) {
+    if (likes.length === 0) return;
+
+    const queries = likes.map((like) =>
+      pool.query(
+        `UPDATE tg_user_likes 
+       SET notified = true 
+       WHERE from_user_id = $1 AND to_user_id = $2 AND status = 'like'`,
+        [like.from_user_id, like.to_user_id]
+      )
+    );
+
+    // Виконуємо батч запитів одночасно, але тільки для цієї порції
+    await Promise.all(queries);
+  }
+  private async sendLikesNotification(
+    userId: number,
+    likesCount: number,
+    lang?: Lang
+  ) {
+    await bot.telegram.sendMessage(
+      userId,
+      t(lang || "en", "you_have_likes", { number_of_likes: likesCount }),
+      {
+        reply_markup: getSeeMyLikesKeyboard(lang || "en"),
+      }
+    );
+  }
+  public async processLikesBatch(batchSize: number = 500) {
+    let likes = await this.getUnnotifiedLikes(batchSize);
+    console.log(likes, "likes");
+
+    if (likes.length === 0) {
+      console.log("No new likes to send");
+      return;
+    }
+
+    while (likes.length > 0) {
+      // групуємо по користувачу
+
+      type LikeRow = {
+        from_user_id: number;
+        to_user_id: number;
+        lang?: string;
+      };
+
+      const grouped: Record<number, LikeRow[]> = {};
+      for (const row of likes as LikeRow[]) {
+        if (!grouped[row.to_user_id]) grouped[row.to_user_id] = [];
+        grouped[row.to_user_id].push(row);
+      }
+
+      // надсилаємо кожному користувачу в поточній порції
+      for (const [userId, userLikes] of Object.entries(grouped)) {
+        try {
+          const lang = (userLikes[0]?.lang as Lang) || "uk"; // беремо мову з першого лайка в групі
+          await this.sendLikesNotification(
+            Number(userId),
+            userLikes.length,
+            lang
+          );
+          await this.markLikesAsNotified(userLikes);
+          console.log(
+            `✅ Sent ${userLikes.length} likes notification to user ${userId}`
+          );
+        } catch (err) {
+          console.error(`❌ Failed to send likes to user ${userId}`, err);
+        }
+      }
+
+      // Беремо наступну порцію
+      likes = await this.getUnnotifiedLikes(batchSize);
+    }
+  }
+
+
+
+
+
+private async checkMutualLike(fromUserId: number, toUserId: number): Promise<boolean> {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM tg_user_likes
+     WHERE from_user_id = $1 AND to_user_id = $2 AND status = 'like'`,
+    [toUserId, fromUserId] // перевіряємо, чи вже лайкнув навпаки
+  );
+  return rows.length > 0;
+}
+
+private async sendMutualLikeNotification(userA: number, userB: number) {
+  const message = `💖 Ви поставили взаємний лайк з користувачем ${userB}!`;
+  await bot.telegram.sendMessage(userA, message);
+
+  const message2 = `💖 Ви поставили взаємний лайк з користувачем ${userA}!`;
+  await bot.telegram.sendMessage(userB, message2);
+}
+
+  public start(intervalMs: number = 40000, batchSize: number = 500) {
+    if (this.isRunning) return;
+    this.isRunning = true;
+
+    console.log("Likes queue started...");
+
+    this.interval = setInterval(async () => {
+      await this.processLikesBatch(batchSize);
+    }, intervalMs);
   }
 }
 

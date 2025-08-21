@@ -8,6 +8,7 @@ import { tgProfileService } from "../services/profile.service";
 import { InputMediaPhoto } from "telegraf/typings/core/types/typegram";
 import { redis } from "../../utils/redis";
 import { tgLikeService } from "../services/like.service";
+import { getRandomGif, sendRandomGif } from "../lib/giphy(random-gif)/giphy";
 
 export interface PartnerRow {
   user_id: number;
@@ -28,6 +29,7 @@ export interface PartnerRow {
   status?: string;
   distance: number;
   photos?: string[];
+  distance_km?: number;
 }
 
 export interface FindPartnerState {
@@ -79,6 +81,7 @@ const findPartnerScene = new Scenes.WizardScene<MyContext>(
   // Крок 2: Отримати локацію або взяти з профілю
   async (ctx) => {
     const userId = ctx.message?.from.id!;
+    const user = await tgProfileService.getProfileByUserId(userId);
     let latitude: number;
     let longitude: number;
     await ctx.reply("👀 Starting search your love...", {
@@ -101,8 +104,6 @@ const findPartnerScene = new Scenes.WizardScene<MyContext>(
       "text" in ctx.message &&
       ctx.message.text === t(ctx.lang, "use_profile_location")
     ) {
-      const user = await tgProfileService.getProfileByUserId(userId);
-
       if (!user || !user.latitude || !user.longitude) {
         await ctx.reply(t(ctx.lang, "no_profile_location"), {
           reply_markup: getMainKeyboard(ctx),
@@ -119,49 +120,54 @@ const findPartnerScene = new Scenes.WizardScene<MyContext>(
       return;
     }
 
-    // Тут робиш запит до БД з latitude/longitude
-    //   const res = await pool.query(
-    //     `
-    // SELECT
-    //   p.*,
-    //   (6371000 * acos(
-    //     LEAST(1, GREATEST(-1, cos(radians($1)) * cos(radians(p.latitude)) *
-    //     cos(radians(p.longitude) - radians($2)) +
-    //     sin(radians($1)) * sin(radians(p.latitude)))))) AS distance,
-    //   json_agg(ph.url) AS photos
-    // FROM tg_user_profile p
-    // LEFT JOIN tg_profile_photos ph ON ph.user_id = p.user_id
-    // WHERE p.user_id != $3
-    // GROUP BY p.user_id
-    // ORDER BY distance ASC
-    // LIMIT 100
-    // `,
+console.log(user,'USER');
+
     const res = await pool.query(
       `
-SELECT 
-    p.*,
-    (6371000 * acos(
-      LEAST(1, GREATEST(-1, cos(radians($1)) * cos(radians(p.latitude)) *
-      cos(radians(p.longitude) - radians($2)) +
-      sin(radians($1)) * sin(radians(p.latitude)))))) AS distance,
-    json_agg(ph.url) AS photos
-FROM tg_user_profile p
-LEFT JOIN tg_profile_photos ph ON ph.user_id = p.user_id
-WHERE p.user_id != $3
-  AND NOT EXISTS (
-    SELECT 1
-    FROM tg_user_likes l
-    WHERE l.from_user_id = $3
-      AND l.to_user_id = p.user_id
-  )
-GROUP BY p.user_id
-ORDER BY distance ASC
-LIMIT 20
-  `,
-      [latitude, longitude, userId]
+  SELECT 
+      p.*,
+      (6371 * acos(
+          LEAST(1, GREATEST(-1, cos(radians($1)) * cos(radians(p.latitude)) *
+          cos(radians(p.longitude) - radians($2)) +
+          sin(radians($1)) * sin(radians(p.latitude))))
+      )) AS distance_km,
+      COALESCE(
+          (SELECT json_agg(url)
+           FROM tg_profile_photos ph
+           WHERE ph.user_id = p.user_id), '[]'
+      ) AS photos
+  FROM tg_user_profile p
+  WHERE p.user_id != $3
+    AND p.age BETWEEN $5 AND $6
+    AND NOT EXISTS (
+        SELECT 1
+        FROM tg_user_likes l
+        WHERE l.from_user_id = $3
+          AND l.to_user_id = p.user_id
+    )
+    AND (6371 * acos(
+          LEAST(1, GREATEST(-1, cos(radians($1)) * cos(radians(p.latitude)) *
+          cos(radians(p.longitude) - radians($2)) +
+          sin(radians($1)) * sin(radians(p.latitude))))
+    )) <= $4
+  ORDER BY distance_km ASC
+  LIMIT 20;
+`,
+      [
+        latitude,
+        longitude,
+        userId,
+        user.max_distance_search = user?.max_distance_search || 100,
+        user.min_age,
+        user.max_age,
+      ]
     );
+
+ 
+
     if (!res.rows.length) {
-      await ctx.reply(t(ctx.lang, "no_partners_nearby"), {
+      await sendRandomGif(ctx, ctx.message.from.id, "sad");
+      await ctx.reply(t(ctx.lang, "no_partners_neary"), {
         reply_markup: getMainKeyboard(ctx),
       });
       return ctx.scene.leave();
@@ -194,7 +200,7 @@ async function sendPartner(ctx: MyContext) {
         media: photoUrl,
         caption:
           index === 0
-            ? `👤 ${partner.name || "Без імені"}\n📍 ${Math.round(partner.distance / 1000)} км\n📝 ${
+            ? `👤 ${partner.name || "Без імені"}\n📍 ${Math.round(partner.distance_km!)} км\n📝 ${
                 partner.description || t(ctx.lang, "no_description")
               }\n__________________\nLooking age: ${partner.min_age || "?"} - ${
                 partner.max_age || "?"
@@ -215,7 +221,7 @@ async function sendPartner(ctx: MyContext) {
   } else {
     // Якщо фото немає, просто текст
     await ctx.reply(
-      `👤 ${partner.name || "Без імені"}\n📍 ${Math.round(partner.distance / 1000)} км\n📝 ${
+      `👤 ${partner.name || "Без імені"}\n📍 ${Math.round(partner.distance_km!)} км\n📝 ${
         partner.description || t(ctx.lang, "no_description")
       }`
     );

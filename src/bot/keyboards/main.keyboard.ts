@@ -4,9 +4,8 @@ import { MyContext } from "../types/bot-context";
 export function getMainKeyboard(ctx: MyContext) {
   return {
     keyboard: [
-      [{ text: t(ctx.lang, "find_partner") }],
-      [{ text: t(ctx.lang, "my_likes") }, { text: t(ctx.lang, "liked_by_me") }],
-      [{ text: t(ctx.lang, "profile") }, { text: t(ctx.lang, "premium") }],
+      [{ text: t(ctx.lang, "profile") },{ text: t(ctx.lang, "my_likes") }, { text: t(ctx.lang, "find_partner") }],
+      [{ text: t(ctx.lang, "bonus") }, { text: t(ctx.lang, "premium") }],
       [{ text: t(ctx.lang, "settings") }],
     ],
     resize_keyboard: true,

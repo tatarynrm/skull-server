@@ -21,7 +21,6 @@ export function getProfileKeyboard(ctx: MyContext) {
         { text: t(ctx.lang, "keyboard_edit_profile_description") },
       ],
       [{ text: t(ctx.lang, "keyboard_edit_profile_age") }],
-      [{ text: t(ctx.lang, "keyboard_edit_profile_hide") }],
       [{ text: t(ctx.lang, "back_to_menu") }],
     ],
     resize_keyboard: true,
