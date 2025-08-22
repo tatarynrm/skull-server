@@ -5,7 +5,7 @@ import { tgLikeService } from "../services/like.service";
 export function LikesSchedule() {
 
 
-  tgLikeService.start(5000)
+  tgLikeService.start(20000)
 
 
  
