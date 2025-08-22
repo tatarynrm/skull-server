@@ -98,5 +98,6 @@
   "incorect_city": "Leider konnten wir den angegebenen Ort nicht finden. Versuchen Sie einen anderen Ort oder überprüfen Sie die Schreibweise.",
   "query_sent_to_admin": "Ihre Nachricht wurde erfolgreich an den Administrator übermittelt.",
   "use_profile_location": "Suche starten 🔎",
-  "age_label": "Jahre"
+  "age_label": "Jahre",
+  "first_time_start_welcome_text_building_de": "Hallo! 👋\n\nDer Bot läuft derzeit im Testmodus. Es kann zu einigen Fehlern kommen, aber Sie können ihn bereits verwenden. Für Hilfe nutzen Sie den Befehl /help.\n\nWir freuen uns über Ihr Feedback! Teilen Sie uns mit, welche Funktionen Sie im Bot sehen möchten oder was wir verbessern oder hinzufügen könnten."
 }

@@ -97,5 +97,7 @@
   "profile_description_add_text": "Parlez de vous-même, vos hobbies, ce que vous faites, si vous travaillez ou étudiez, etc.",
   "incorect_city": "Désolé, nous n'avons pas pu trouver l'emplacement que vous avez indiqué. Essayez un autre endroit ou vérifiez l'orthographe.",
   "query_sent_to_admin": "Votre message a été livré avec succès à l’administrateur.",
-  "age_label": "ans"
+  "age_label": "ans",
+  "first_time_start_welcome_text_building_fr": "Bonjour ! 👋\n\nLe bot fonctionne actuellement en mode test. Certains bugs peuvent survenir, mais vous pouvez déjà l'utiliser. Pour obtenir de l'aide, utilisez la commande /help.\n\nNous serions ravis d'avoir vos retours ! Dites-nous quelles fonctionnalités vous aimeriez voir dans le bot ou ce que nous pourrions améliorer ou ajouter."
+
 }

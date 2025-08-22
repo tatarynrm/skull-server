@@ -105,6 +105,7 @@ bot.start(async (ctx) => {
 
   if (isNew) {
     await ctx.reply(t(ctx.lang, "first_time_start_welcome_text"));
+    await ctx.reply(t(ctx.lang, "first_time_start_welcome_text_building"));
     return await ctx.scene.enter(BotScenes.CHANGE_LANGUAGE);
   }
 

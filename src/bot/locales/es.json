@@ -97,5 +97,6 @@
   "profile_description_add_text": "Cuéntanos sobre ti, tus hobbies, qué haces, si trabajas, estudias, etc.",
   "incorect_city": "Desafortunadamente, no pudimos encontrar la ubicación que proporcionaste. Intenta ingresar otro lugar o verifica la ortografía.",
   "query_sent_to_admin": "Su mensaje ha sido entregado con éxito al administrador.",
-  "age_label": "años"
+  "age_label": "años",
+  "first_time_start_welcome_text_building_es": "¡Hola! 👋\n\nEl bot actualmente está en modo de prueba. Pueden ocurrir algunos errores, pero ya puedes usarlo. Para obtener ayuda, usa el comando /help.\n\n¡Nos encantaría recibir tus comentarios! Cuéntanos qué funciones te gustaría ver en el bot o qué podríamos mejorar o añadir."
 }
