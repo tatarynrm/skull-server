@@ -23,14 +23,59 @@ async function sendProfileCard(ctx: MyContext, profile: any) {
   const mediaGroup = validPhotos.map((photo: any, index: number) => ({
     type: "photo",
     media: photo.url,
-    caption: index === 0
-      ? `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${profile.city || "Не вказано"}\n📝 ${profile.description || "Без опису"}\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`
-      : undefined,
+    caption:
+      index === 0
+        ? `👤 ${profile.name || ctx.from?.first_name} (${profile.age || "Age"})\n📍 ${profile.city || "Не вказано"}\n📝 ${profile.description || "Без опису"}\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`
+        : undefined,
   }));
 
   await ctx.replyWithMediaGroup(mediaGroup);
 }
 
+export async function sendProfileCardToAnotherUser(
+  chatId: number,
+  profile: any
+) {
+  const validPhotos = profile.photos?.filter((p: any) => p.url?.trim()) || [];
+
+  // якщо немає фото → простий текст
+  if (!validPhotos.length) {
+    await bot.telegram.sendMessage(
+      chatId,
+      `👤 ${profile.name || "Без імені"} (${profile.age || "Age"})\n📍 ${
+        profile.city || "Не вказано"
+      }\n📝 ${profile.description || "Без опису"}\n__________________\nLooking age: ${
+        profile.min_age
+      } - ${profile.max_age}\nLooking for: ${
+        profile.looking_for === 1
+          ? "👦"
+          : profile.looking_for === 2
+            ? "👧"
+            : profile.looking_for === 3
+              ? "👦👧"
+              : "❓"
+      }\n${profile.status ? `Status: ${profile.status}` : "⛔Status is not set"}`,
+      Markup.keyboard([["❤️ Лайк", "❌ Дизлайк"]]).resize()
+    );
+    return;
+  }
+
+  // якщо є фото → відправляємо медіа-групу
+  const mediaGroup = validPhotos.map((photo: any, index: number) => ({
+    type: "photo" as const,
+    media: photo.url,
+    caption:
+      index === 0
+        ? `👤 ${profile.name || "Без імені"} (${profile.age || "Age"})\n📍 ${
+            profile.city || "Не вказано"
+          }\n📝 ${profile.description || "Без опису"}\n${
+            profile.status ? `Status: ${profile.status}` : "⛔Status is not set"
+          }`
+        : undefined,
+  }));
+
+  await bot.telegram.sendMediaGroup(chatId, mediaGroup);
+}
 const myLikesScene = new Scenes.WizardScene<MyContext>(
   BotScenes.MY_LIKES_SCENE,
 
@@ -41,13 +86,37 @@ const myLikesScene = new Scenes.WizardScene<MyContext>(
 
     const { rows: likes } = await pool.query(
       `SELECT 
-        p.user_id, p.name, p.age, p.city, p.description, p.looking_for, p.min_age, p.max_age, p.status,
-        COALESCE(jsonb_agg(DISTINCT jsonb_build_object('url', pp.url)) FILTER (WHERE pp.url IS NOT NULL), '[]'::jsonb) AS photos
-      FROM tg_user_likes l
-      JOIN tg_user_profile p ON p.user_id = l.from_user_id
-      LEFT JOIN tg_profile_photos pp ON p.user_id = pp.user_id
-      WHERE l.to_user_id=$1 AND l.status='like' AND l.is_seen=false
-      GROUP BY p.user_id, p.name, p.age, p.city, p.description, p.looking_for, p.min_age, p.max_age, p.status`,
+    l.from_user_id,
+    l.to_user_id,
+    l.is_mutual,
+    p.name,
+    p.age,
+    p.city,
+    p.description,
+    p.looking_for,
+    p.min_age,
+    p.max_age,
+    p.status,
+    e.username,
+    COALESCE(
+        jsonb_agg(DISTINCT jsonb_build_object('url', pp.url)) 
+        FILTER (WHERE pp.url IS NOT NULL), '[]'::jsonb
+    ) AS photos
+FROM tg_profile_likes l
+JOIN tg_user_profile p 
+    ON p.user_id = l.from_user_id
+LEFT JOIN tg_profile_photos pp 
+    ON p.user_id = pp.user_id
+LEFT JOIN tg_user e 
+    ON p.user_id = e.tg_id
+WHERE l.to_user_id = $1
+  AND l.is_mutual = false
+GROUP BY 
+    l.from_user_id, l.to_user_id, l.is_mutual,
+    p.name, p.age, p.city, p.description, 
+    p.looking_for, p.min_age, p.max_age, p.status,
+    e.username;
+`,
       [tgId]
     );
 
@@ -79,63 +148,113 @@ const myLikesScene = new Scenes.WizardScene<MyContext>(
     const currentProfile = queue[index];
     const userId = ctx.from?.id;
     if (!currentProfile || !userId) return ctx.scene.leave();
-    const likedUserId = currentProfile.user_id;
 
+    const likedUserId = currentProfile.from_user_id;
     if (text === "❤️ Лайк") {
-      // Вставка або оновлення лайку користувача
-      await pool.query(
-        `INSERT INTO tg_user_likes (from_user_id, to_user_id, status, is_seen, mutual_notified)
-         VALUES ($1, $2, 'like', true, false)
-         ON CONFLICT (from_user_id, to_user_id) DO UPDATE SET status='like', is_seen=true`,
-        [userId, likedUserId]
-      );
-
-      // Перевірка взаємного лайку, який ще не був notified
-      const { rows: mutual } = await pool.query(
-        `SELECT * FROM tg_user_likes
-         WHERE from_user_id=$1 AND to_user_id=$2 AND status='like' AND mutual_notified=false`,
+      const { rows } = await pool.query(
+        `UPDATE tg_profile_likes 
+     SET is_mutual = true 
+     WHERE from_user_id = $1 AND to_user_id = $2 
+     RETURNING *`,
         [likedUserId, userId]
       );
 
-      if (mutual.length) {
-        // Позначаємо, що повідомлення про взаємний лайк вже надіслане
-        await pool.query(
-          `UPDATE tg_user_likes SET mutual_notified=true WHERE from_user_id=$1 AND to_user_id=$2`,
-          [likedUserId, userId]
+      if (rows[0]) {
+        const mutual = rows[0]; // { from_user_id, to_user_id, is_mutual: true }
+
+        // беремо анкету того, хто щойно лайкнув (to_user_id = current user)
+        const { rows: fromProfileRows } = await pool.query(
+          `SELECT 
+      p.*, 
+      u.username,
+      COALESCE(
+        jsonb_agg(DISTINCT jsonb_build_object('url', pp.url)) 
+        FILTER (WHERE pp.url IS NOT NULL), '[]'::jsonb
+      ) AS photos
+   FROM tg_user_profile p
+   LEFT JOIN tg_profile_photos pp 
+      ON p.user_id = pp.user_id
+   LEFT JOIN tg_user u
+      ON p.user_id = u.tg_id
+   WHERE p.user_id = $1
+   GROUP BY p.user_id, u.username`,
+          [mutual.to_user_id]
+        );
+        const profile = fromProfileRows[0];
+
+        // ------------------------
+        // Для того, хто лайкнув першим (from_user_id)
+        // ------------------------
+        // await bot.telegram.sendMessage(
+        //   mutual.from_user_id,
+        //   "💌 У вас взаємний лайк з користувачем! Ось його анкета:"
+        // );
+
+        // чекаємо доки картка відправиться
+        await sendProfileCardToAnotherUser(mutual.from_user_id, profile);
+
+        // і тільки після цього додаємо кнопку для початку чату
+        await bot.telegram.sendMessage(
+          mutual.from_user_id,
+          `💌 У вас взаємний лайк  ${ctx.from.username || ""}`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "💬 Почати чат",
+                    url: `https://t.me/${ctx.from?.username}`,
+                  },
+                ],
+              ],
+            },
+          }
         );
 
-        // Відправка повідомлень обом
-        const randomTexts = [
-          "Привіт! 😍 Як твій день?",
-          "Хай! 👋 Давай познайомимось!",
-          "Салют! 😉 Готовий до цікавого чату?",
-          "Ей! 😎 Радію, що ми лайкнули один одного!",
-          "💌 Нарешті зустрілися в SkullDate!",
-        ];
-        const randomMessage = randomTexts[Math.floor(Math.random() * randomTexts.length)] + "\n\n— я з SkullDateBot";
+        // ------------------------
+        // Для того, хто щойно поставив лайк (to_user_id)
+        // ------------------------
 
-        const liker = await tgUserService.getTelegramUser(userId);
-        const liked = await tgUserService.getTelegramUser(likedUserId);
+        const oponentUserid = await pool.query(
+          `select p.username,c.name
+          
+          from tg_user p  
+          left join tg_user_profile c on p.tg_id = c.user_id    
+          
+          
+          where p.tg_id = $1`,
+          [mutual.from_user_id]
+        );
 
-        const sendMsg = async (toId: number, username?: string) => {
-          if (!username) return bot.telegram.sendMessage(toId, randomMessage);
-          await bot.telegram.sendMessage(toId, randomMessage, {
-            reply_markup: {
-              inline_keyboard: [[{ text: "💬 Написати", url: `https://t.me/${username}` }]],
-            },
-          });
-        };
-
-        await sendMsg(userId, liked?.username);
-        await sendMsg(likedUserId, liker?.username);
+        if (oponentUserid.rows[0]) {
+          const username = await oponentUserid.rows[0].username;
+          const name = await oponentUserid.rows[0].name;
+          await bot.telegram.sendMessage(
+            mutual.to_user_id,
+            `💌 У вас взаємний лайк з користувачем ${name}.`,
+            {
+              reply_markup: username
+                ? {
+                    inline_keyboard: [
+                      [
+                        {
+                          text: "💬 Почати чат",
+                          url: `https://t.me/${username}`,
+                        },
+                      ],
+                    ],
+                  }
+                : undefined, // кнопки немає
+            }
+          );
+        }
       }
+    }
 
-    } else if (text === "❌ Дизлайк") {
+    if (text === "❌ Дизлайк") {
       await pool.query(
-        `INSERT INTO tg_user_likes (from_user_id, to_user_id, status, is_seen, mutual_notified)
-         VALUES ($1, $2, 'dislike', true, true)
-         ON CONFLICT (from_user_id, to_user_id) DO UPDATE SET status='dislike', is_seen=true, mutual_notified=true`,
-        [userId, likedUserId]
+        `delete from tg_profile_likes where from_user_id = $1 and to_user_id = $2`,
+        [likedUserId, userId]
       );
     }
 
@@ -157,7 +276,9 @@ const myLikesScene = new Scenes.WizardScene<MyContext>(
 myLikesScene.use(async (ctx: MyContext, next) => {
   if (ctx.message && "text" in ctx.message) {
     const text = ctx.message.text;
-    const profile = await tgProfileService.getProfileByUserId(ctx.message.from.id);
+    const profile = await tgProfileService.getProfileByUserId(
+      ctx.message.from.id
+    );
 
     if (
       text.startsWith("/profile") ||
@@ -165,9 +286,13 @@ myLikesScene.use(async (ctx: MyContext, next) => {
       text.includes(t(ctx.lang, "back_to_menu"))
     ) {
       if (profile.user_id) {
-        await ctx.reply(t(ctx.lang, "main_menu"), { reply_markup: getMainKeyboard(ctx) });
+        await ctx.reply(t(ctx.lang, "main_menu"), {
+          reply_markup: getMainKeyboard(ctx),
+        });
       } else {
-        await ctx.reply(t(ctx.lang, "main_menu"), { reply_markup: getBeforeRegisterKeyboard(ctx) });
+        await ctx.reply(t(ctx.lang, "main_menu"), {
+          reply_markup: getBeforeRegisterKeyboard(ctx),
+        });
       }
       return ctx.scene.leave();
     }

@@ -36,32 +36,54 @@ export class UserService {
     return user;
   }
 
-  async getOrCreateUser(tgId: number, ctx: MyContext, refrerred_by?: number | null) {
-    console.log(refrerred_by,'refrerred_by');
+  // async getOrCreateUser(tgId: number, ctx: MyContext, refrerred_by?: number | null) {
+  
     
-    const userResult = await pool.query(
-      `SELECT * FROM tg_user WHERE tg_id = $1`,
-      [tgId]
-    );
-    let user = userResult.rows[0];
+  //   const userResult = await pool.query(
+  //     `SELECT * FROM tg_user WHERE tg_id = $1`,
+  //     [tgId]
+  //   );
+  //   let user = userResult.rows[0];
 
-    if (!user) {
-      const defaultLang = "uk";
-      await pool.query(
-        `INSERT INTO tg_user (tg_id, first_name, username, lang,refrerred_by) VALUES ($1, $2, $3, $4,$5)`,
-        [
-          tgId,
-          ctx.message?.from.first_name || "",
-          ctx.message?.from.username || "",
-          defaultLang,
-          refrerred_by ?? null,
-        ]
-      );
-      return { lang: defaultLang, isNew: true };
-    }
+  //   if (!user) {
+  //     const defaultLang = "uk";
+  //     await pool.query(
+  //       `INSERT INTO tg_user (tg_id, first_name, username, lang,refrerred_by) VALUES ($1, $2, $3, $4,$5)`,
+  //       [
+  //         tgId,
+  //         ctx.message?.from.first_name || "",
+  //         ctx.message?.from.username || "",
+  //         defaultLang,
+  //         refrerred_by ?? null,
+  //       ]
+  //     );
+  //     return { lang: defaultLang, isNew: true };
+  //   }
 
-    return { lang: user.lang || "uk", isNew: false };
-  }
+  //   return { lang: user.lang || "uk", isNew: false };
+  // }
+
+
+  async getOrCreateUser(tgId: number, ctx: MyContext, referred_by?: number | null) {
+  const defaultLang = "uk";
+  const firstName = ctx.message?.from.first_name || "";
+  const username = ctx.message?.from.username || "";
+
+  const { rows } = await pool.query(
+    `INSERT INTO tg_user (tg_id, first_name, username, lang, referred_by)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (tg_id) DO UPDATE 
+       SET first_name = EXCLUDED.first_name,
+           username = EXCLUDED.username,
+           lang = tg_user.lang, -- залишаємо існуючу мову
+           referred_by = COALESCE(tg_user.referred_by, EXCLUDED.referred_by)
+     RETURNING *`,
+    [tgId, firstName, username, defaultLang, referred_by ?? null]
+  );
+
+  const user = rows[0];
+  return { lang: user.lang || defaultLang, isNew: user.created_at === user.updated_at };
+}
   async saveReferedByIdIfExist(tgId: number, refered_by?: number) {
     const userResult = await pool.query(
       `SELECT * FROM tg_user WHERE tg_id = $1`,

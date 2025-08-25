@@ -157,5 +157,6 @@
   "profile_not_found": "❌ Profile not found.",
   "update_age_range_error": "⚠️ An error occurred while updating the age range.",
   "no_new_likes": "💔 Oh no! It looks like there are no new likes yet...\n\nDon't be sad 😢\nKeep exploring and your special someone will find you! 🌟💌",
-   "first_time_start_welcome_text_building_en": "Hello! 👋\n\nThe bot is currently running in test mode. Some bugs may occur, but you can already use it. For help, use the /help command.\n\nWe would love your feedback! Let us know what features you would like to see in the bot, or what we could improve or add."
+  "first_time_start_welcome_text_building_en": "Hello! 👋\n\nThe bot is currently running in test mode. Some bugs may occur, but you can already use it. For help, use the /help command.\n\nWe would love your feedback! Let us know what features you would like to see in the bot, or what we could improve or add.",
+  "you_have_new_likes": "You have {{likes}} new ❤️.\n\nClick 'My Likes' to view them"
 }

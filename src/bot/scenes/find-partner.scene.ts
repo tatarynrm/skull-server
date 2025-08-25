@@ -120,7 +120,7 @@ const findPartnerScene = new Scenes.WizardScene<MyContext>(
       return;
     }
 
-console.log(user,'USER');
+    console.log(user, "USER");
 
     const res = await pool.query(
       `
@@ -141,7 +141,7 @@ console.log(user,'USER');
     AND p.age BETWEEN $5 AND $6
     AND NOT EXISTS (
         SELECT 1
-        FROM tg_user_likes l
+        FROM tg_profile_likes l
         WHERE l.from_user_id = $3
           AND l.to_user_id = p.user_id
     )
@@ -157,13 +157,11 @@ console.log(user,'USER');
         latitude,
         longitude,
         userId,
-        user.max_distance_search = user?.max_distance_search || 100,
+        (user.max_distance_search = user?.max_distance_search || 100),
         user.min_age,
         user.max_age,
       ]
     );
-
- 
 
     if (!res.rows.length) {
       await sendRandomGif(ctx, ctx.message.from.id, "sad");
@@ -243,9 +241,8 @@ findPartnerScene.hears("👤", async (ctx) => {
 // Обробка лайку / дизлайку з оновленням лічильника
 async function handleLikeDislike(ctx: MyContext, type: "like" | "dislike") {
   const cacheKey = `profile:${ctx.message?.from.id}`;
+  await redis.del(cacheKey);
 
-  // // 1️⃣ Перевіряємо Redis
-  const cached = await redis.del(cacheKey);
   const profile = await tgProfileService.getProfileByUserId(
     ctx.message?.from.id!
   );
@@ -263,56 +260,50 @@ async function handleLikeDislike(ctx: MyContext, type: "like" | "dislike") {
   }
 
   const userId = ctx.message?.from.id;
-
+  if (!userId) {
+    return await ctx.reply("Something wrong with connection...");
+  }
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
 
     if (type === "like") {
+      // ✅ Перевірка на кількість лайків
       if (!profile || profile.daily_likes <= 0) {
         await ctx.reply(
           "У вас закінчились лайки на сьогодні. Купіть преміум для безлімітних лайків!",
           { reply_markup: getMainKeyboard(ctx) }
         );
-        state.processing = false;
         await client.query("ROLLBACK");
+        state.processing = false;
         return ctx.scene.leave();
       }
 
+      // ✅ Додаємо лайк
       await client.query(
-        `INSERT INTO tg_user_likes (from_user_id, to_user_id, status)
-         VALUES ($1, $2, 'like')
-         ON CONFLICT (from_user_id, to_user_id)
-         DO UPDATE SET status = 'like'`,
+        `insert into tg_profile_likes (from_user_id, to_user_id) 
+         values ($1, $2) 
+         on conflict (from_user_id, to_user_id) do nothing`,
         [userId, partner.user_id]
       );
 
+      // ✅ Віднімаємо 1 лайк з денного ліміту
       await client.query(
-        `UPDATE tg_user_profile
-         SET daily_likes = daily_likes - 1
-         WHERE user_id = $1`,
+        `update tg_user_profile
+         set daily_likes = daily_likes - 1
+         where user_id = $1`,
         [userId]
       );
-      await tgLikeService.addLikeHistoryRecord(
-        ctx.message?.from.id!,
-        partner.user_id
-      );
-      await tgLikeService.updateUserStats(
-        ctx.message?.from.id!,
-        partner.user_id
-      );
-    } else {
-      await client.query(
-        `INSERT INTO tg_user_likes (from_user_id, to_user_id, status)
-         VALUES ($1, $2, 'dislike')
-         ON CONFLICT (from_user_id, to_user_id)
-         DO UPDATE SET status = 'dislike'`,
-        [userId, partner.user_id]
-      );
+
+      // ✅ Логування та статистика
+      await tgLikeService.addLikeHistoryRecord(userId!, partner.user_id);
+      await tgLikeService.updateUserStats(userId!, partner.user_id);
     }
 
     await client.query("COMMIT");
 
+    // Показуємо наступний профіль
     state.index++;
     await sendPartner(ctx);
   } catch (err) {

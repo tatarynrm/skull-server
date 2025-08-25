@@ -13,7 +13,7 @@ import bot from "../bot";
 import { getSeeMyLikesKeyboard } from "../keyboards";
 import { t } from "../lib/i18n";
 import { Lang } from "../types/bot-context";
-
+const batchSize = 1000;
 export class LikeService {
   /**
    * Додає лайк в історію або оновлює дату, якщо лайк вже існує
@@ -192,26 +192,25 @@ export class LikeService {
     }
   }
 
-
-
-
-
-private async checkMutualLike(fromUserId: number, toUserId: number): Promise<boolean> {
-  const { rows } = await pool.query(
-    `SELECT 1 FROM tg_user_likes
+  private async checkMutualLike(
+    fromUserId: number,
+    toUserId: number
+  ): Promise<boolean> {
+    const { rows } = await pool.query(
+      `SELECT 1 FROM tg_user_likes
      WHERE from_user_id = $1 AND to_user_id = $2 AND status = 'like'`,
-    [toUserId, fromUserId] // перевіряємо, чи вже лайкнув навпаки
-  );
-  return rows.length > 0;
-}
+      [toUserId, fromUserId] // перевіряємо, чи вже лайкнув навпаки
+    );
+    return rows.length > 0;
+  }
 
-private async sendMutualLikeNotification(userA: number, userB: number) {
-  const message = `💖 Ви поставили взаємний лайк з користувачем ${userB}!`;
-  await bot.telegram.sendMessage(userA, message);
+  private async sendMutualLikeNotification(userA: number, userB: number) {
+    const message = `💖 Ви поставили взаємний лайк з користувачем ${userB}!`;
+    await bot.telegram.sendMessage(userA, message);
 
-  const message2 = `💖 Ви поставили взаємний лайк з користувачем ${userA}!`;
-  await bot.telegram.sendMessage(userB, message2);
-}
+    const message2 = `💖 Ви поставили взаємний лайк з користувачем ${userA}!`;
+    await bot.telegram.sendMessage(userB, message2);
+  }
 
   public start(intervalMs: number = 40000, batchSize: number = 500) {
     if (this.isRunning) return;
@@ -223,6 +222,66 @@ private async sendMutualLikeNotification(userA: number, userB: number) {
       await this.processLikesBatch(batchSize);
     }, intervalMs);
   }
+
+  // NEW LIKES START NOTIFICATIONS
+
+public delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+public async notifyUsersAboutNewLikesBatch(delay:any) {
+  // 1. Беремо максимум 1000 непрочитаних лайків
+  const { rows: likes } = await pool.query(
+    `SELECT id, to_user_id
+     FROM tg_profile_likes
+     WHERE is_sent = false
+     ORDER BY id
+     LIMIT 1000`
+  );
+
+  if (!likes.length) return;
+
+  // 2. Групуємо по користувачу
+  const grouped = likes.reduce((acc: any, like: any) => {
+    if (!acc[like.to_user_id]) acc[like.to_user_id] = [];
+    acc[like.to_user_id].push(like.id);
+    return acc;
+  }, {} as Record<number, number[]>);
+
+  // 3. Розсилка з паузами
+  let counter = 0;
+  for (const userId of Object.keys(grouped)) {
+    try {
+      const likeIds = grouped[+userId];
+      const count = likeIds.length;
+
+      // ✅ лише одне повідомлення
+      await bot.telegram.sendMessage(
+        userId,
+        `❤️ У вас ${count} нових лайків! Перейдіть у меню, щоб переглянути 😉`
+      );
+
+      // Оновлюємо is_sent для ВСІХ лайків цього юзера
+      await pool.query(
+        `UPDATE tg_profile_likes
+         SET is_sent = true
+         WHERE id = ANY($1::int[])`,
+        [likeIds]
+      );
+    } catch (err) {
+      console.error(`❌ Не вдалося відправити користувачу ${userId}:`, err);
+    }
+
+    // Ліміт телеграма
+    counter++;
+    if (counter % 30 === 0) {
+      await this.delay(1000); // пауза 1 сек після 30 повідомлень
+    } else {
+      await this.delay(50); // мінімальна затримка (~20/сек)
+    }
+  }
+}
+
 }
 
 export const tgLikeService = new LikeService();

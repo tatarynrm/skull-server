@@ -36,7 +36,9 @@ import myLikesScene from "./scenes/my-likes.scene";
 import setEditProfileDescription from "./scenes/edit-profile-description";
 import changePhotoScene from "./scenes/change-photo.scene";
 import editAgeRangeScene from "./scenes/age-change.scene";
-import { getRandomGif } from "./lib/giphy(random-gif)/giphy";
+import { startLikesScheduler } from "./interval";
+import { startNotifier } from "./notifier";
+
 
 
 // Create the bot instance with MyContext as the generic type
@@ -132,6 +134,7 @@ bot.start(async (ctx) => {
 });
 
 bot.command("profile", async (ctx) => {
+console.log(ctx.message.from.id,'IDDDDDDDDDD');
 
   const tgId = ctx.message.from.id;
   const { lang } = await tgUserService.getOrCreateUser(tgId, ctx);
@@ -331,5 +334,6 @@ bot.on("text", async (ctx) => {
 // sendToAllUsers(message);
 // startAllCronJobs();
 
-LikesSchedule()
+// LikesSchedule()
+startNotifier()
 export default bot;
